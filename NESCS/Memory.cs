@@ -46,5 +46,16 @@
                 memRef.WriteByte(value);
             }
         }
+
+        public ushort ReadTwoBytes(ushort address)
+        {
+            return (ushort)(this[address] + (this[(ushort)(address + 1)] << 8));
+        }
+
+        public void WriteTwoBytes(ushort address, ushort value)
+        {
+            this[address] = (byte)(value & 0xFF);
+            this[(ushort)(address + 1)] = (byte)(value >> 8);
+        }
     }
 }
