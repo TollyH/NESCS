@@ -17,11 +17,11 @@
 
     public record Registers
     {
-        public byte A { get; set; }
-        public byte X { get; set; }
-        public byte Y { get; set; }
-        public ushort PC { get; set; }
-        public byte S { get; set; }
-        public StatusFlags P { get; set; }
+        public byte A;
+        public byte X;
+        public byte Y;
+        public ushort PC;
+        public byte S;
+        public StatusFlags P;
     }
 }
