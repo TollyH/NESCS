@@ -58,17 +58,96 @@
                         // ORA
                         case 0b000:
                             CpuRegisters.A |= ReadOperand(addressingMode);
-                            SetFlagsFromAccumulator();
+                            SetZNFlagsFromAccumulator();
                             break;
                         // AND
                         case 0b001:
                             CpuRegisters.A &= ReadOperand(addressingMode);
-                            SetFlagsFromAccumulator();
+                            SetZNFlagsFromAccumulator();
                             break;
                         // EOR
                         case 0b010:
                             CpuRegisters.A ^= ReadOperand(addressingMode);
-                            SetFlagsFromAccumulator();
+                            SetZNFlagsFromAccumulator();
+                            break;
+                        // ADC
+                        case 0b011:
+                            byte initialValue = CpuRegisters.A;
+                            byte operand = ReadOperand(addressingMode);
+                            CpuRegisters.A += (byte)(operand + (byte)(CpuRegisters.P & StatusFlags.Carry));
+
+                            SetZNFlagsFromAccumulator();
+
+                            if (CpuRegisters.A < initialValue)
+                            {
+                                CpuRegisters.P |= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Carry;
+                            }
+
+                            int initialSign = initialValue & SignBit;
+                            if (initialSign == (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= StatusFlags.Overflow;
+                            }
+                            break;
+                        // STA
+                        case 0b100:
+                            WriteOperand(addressingMode, CpuRegisters.A);
+                            break;
+                        // LDA
+                        case 0b101:
+                            CpuRegisters.A = ReadOperand(addressingMode);
+                            SetZNFlagsFromAccumulator();
+                            break;
+                        // CMP
+                        case 0b110:
+                            initialValue = CpuRegisters.A;
+                            byte result = (byte)(CpuRegisters.A - ReadOperand(addressingMode));
+
+                            SetZNFlagsFromValue(result);
+
+                            if (result > initialValue)
+                            {
+                                CpuRegisters.P |= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // SBC
+                        case 0b111:
+                            initialValue = CpuRegisters.A;
+                            operand = ReadOperand(addressingMode);
+                            CpuRegisters.A -= (byte)(operand - (byte)(CpuRegisters.P & StatusFlags.Carry));
+
+                            SetZNFlagsFromAccumulator();
+
+                            if (CpuRegisters.A > initialValue)
+                            {
+                                CpuRegisters.P |= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Carry;
+                            }
+
+                            initialSign = initialValue & SignBit;
+                            if (initialSign != (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= StatusFlags.Overflow;
+                            }
                             break;
                     }
                     break;
@@ -150,9 +229,9 @@
             }
         }
 
-        private void SetFlagsFromAccumulator()
+        private void SetZNFlagsFromValue(byte value)
         {
-            if (CpuRegisters.A == 0)
+            if (value == 0)
             {
                 CpuRegisters.P |= StatusFlags.Zero;
             }
@@ -161,7 +240,7 @@
                 CpuRegisters.P &= ~StatusFlags.Zero;
             }
 
-            if ((CpuRegisters.A & SignBit) == 0)
+            if ((value & SignBit) == 0)
             {
                 CpuRegisters.P &= ~StatusFlags.Negative;
             }
@@ -169,6 +248,11 @@
             {
                 CpuRegisters.P |= StatusFlags.Negative;
             }
+        }
+
+        private void SetZNFlagsFromAccumulator()
+        {
+            SetZNFlagsFromValue(CpuRegisters.A);
         }
 
         public static AddressingMode GetAddressingMode(byte instructionGroup, byte addressingModeCode, byte instructionCode)
