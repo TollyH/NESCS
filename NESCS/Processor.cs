@@ -29,6 +29,8 @@
 
         public TimeSpan CurrentClock { get; set; } = TimeSpan.FromTicks(NtscClockTicks);
 
+        public bool Halted { get; private set; } = false;
+
         public readonly Registers CpuRegisters = new();
         public readonly Memory SystemMemory = new();
 
@@ -38,6 +40,7 @@
         /// </summary>
         /// <returns>
         /// The number of CPU clock cycles the instruction would have taken to execute on real hardware.
+        /// A value of 0 means that an illegal opcode causing the CPU to crash was executed.
         /// </returns>
         public int InterpretNextInstruction()
         {
@@ -101,12 +104,6 @@
                             break;
                         // STA
                         case 0b100:
-                            if (addressingMode == AddressingMode.Immediate)
-                            {
-                                // NOP - unofficial
-                                break;
-                            }
-
                             WriteOperand(addressingMode, CpuRegisters.A);
                             break;
                         // LDA
@@ -161,6 +158,13 @@
                     break;
                 // Group Two
                 case 0b10:
+                    if (addressingModeCode == 0b100 || (addressingModeCode == 0b000 && instructionCode <= 0b011))
+                    {
+                        // UNOFFICIAL - Crash/halt the processor (often referred to as STP/KIL/JAM/HLT)
+                        Halted = true;
+                        return 0;
+                    }
+
                     switch (instructionCode)
                     {
                         // ASL
@@ -230,6 +234,7 @@
                         // STX
                         // TXA
                         // TXS
+                        // UNOFFICIAL - SHX
                         case 0b100:
                             if (addressingMode == AddressingMode.Implicit)
                             {
@@ -238,8 +243,9 @@
                             }
                             else
                             {
-                                // STX & TXA
-                                WriteOperand(addressingMode, CpuRegisters.X);
+                                WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteYIndexed
+                                    ? (byte)(CpuRegisters.X & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHX
+                                    : CpuRegisters.X);  // STX & TXA
                             }
                             break;
                         // LDX
@@ -255,7 +261,7 @@
                         // DEC
                         // DEX
                         case 0b110:
-                            if (addressingMode == AddressingMode.Implicit)
+                            if (addressingModeCode == 0b010)
                             {
                                 // DEX
                                 result = --CpuRegisters.X;
@@ -391,13 +397,16 @@
                     {
                         // BRK
                         case 0b000:
-                            PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
-                            CpuRegisters.P |= StatusFlags.Break;
-                            PushStack((byte)CpuRegisters.P);
-                            CpuRegisters.P |= StatusFlags.InterruptDisable;
-                            CpuRegisters.PC = 0xFFFE;
+                            if (addressingModeCode == 0b000)
+                            {
+                                PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
+                                CpuRegisters.P |= StatusFlags.Break;
+                                PushStack((byte)CpuRegisters.P);
+                                CpuRegisters.P |= StatusFlags.InterruptDisable;
+                                CpuRegisters.PC = 0xFFFE;
 
-                            cancelPCIncrement = true;
+                                cancelPCIncrement = true;
+                            }
                             break;
                         // JSR
                         // BIT
@@ -445,13 +454,19 @@
                                     CpuRegisters.PC++;
                                 }
                             }
-
-                            CpuRegisters.PC = GetAddressFromOperand(addressingMode);
-                            cancelPCIncrement = true;
+                            else if (addressingModeCode == 0b011)
+                            {
+                                // JMP
+                                CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                                cancelPCIncrement = true;
+                            }
                             break;
                         // STY
+                        // UNOFFICIAL - SHY
                         case 0b100:
-                            WriteOperand(addressingMode, CpuRegisters.Y);
+                            WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteXIndexed
+                                ? (byte)(CpuRegisters.Y & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHY
+                                : CpuRegisters.Y);  // STY
                             break;
                         // LDY
                         case 0b101:
@@ -505,7 +520,7 @@
         /// <summary>
         /// Get the address that an instruction operand will operate on for the given addressing mode at the current PC register value.
         /// </summary>
-        public ushort GetAddressFromOperand(AddressingMode mode)
+        private ushort GetAddressFromOperand(AddressingMode mode)
         {
             return mode switch
             {
@@ -533,7 +548,7 @@
         ///     <item>The immediate value for the Immediate addressing mode.</item>
         /// </list>
         /// </returns>
-        public byte ReadOperand(AddressingMode mode)
+        private byte ReadOperand(AddressingMode mode)
         {
             return mode switch
             {
@@ -550,6 +565,7 @@
                     or AddressingMode.IndexedIndirect
                     or AddressingMode.IndirectIndexed
                     => SystemMemory[GetAddressFromOperand(mode)],
+                AddressingMode.Implicit => 0,  // UNOFFICIAL - Reading implicit operand is a NOP
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode))
             };
         }
@@ -557,7 +573,7 @@
         /// <summary>
         /// Write to an instruction operand for the given addressing mode at the current PC register value.
         /// </summary>
-        public void WriteOperand(AddressingMode mode, byte value)
+        private void WriteOperand(AddressingMode mode, byte value)
         {
             switch (mode)
             {
@@ -576,28 +592,31 @@
                 case AddressingMode.IndirectIndexed:
                     SystemMemory[GetAddressFromOperand(mode)] = value;
                     break;
+                case AddressingMode.Immediate:
+                    // UNOFFICIAL - Writing to an immediate operand is a NOP
+                    break;
                 default:
-                    throw new ArgumentException($"The given AddressingMode ({mode}) does not have a writeable operand.", nameof(mode));
+                    throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode));
             }
         }
 
-        public byte PopStack()
+        private byte PopStack()
         {
             return SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)];
         }
 
-        public void PushStack(byte value)
+        private void PushStack(byte value)
         {
             SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = value;
         }
 
-        public ushort PopStackTwoByte()
+        private ushort PopStackTwoByte()
         {
             return (ushort)((SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)] << 8)
                 & (SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)]));
         }
 
-        public void PushStackTwoByte(ushort value)
+        private void PushStackTwoByte(ushort value)
         {
             SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = (byte)(value >> 8);
             SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = (byte)(value & 0xFF);
@@ -650,7 +669,7 @@
             };
         }
 
-        public static AddressingMode GetAddressingMode(byte instructionGroup, byte addressingModeCode, byte instructionCode)
+        private static AddressingMode GetAddressingMode(byte instructionGroup, byte addressingModeCode, byte instructionCode)
         {
             return instructionGroup switch
             {
@@ -679,7 +698,7 @@
                     0b101 when instructionCode is 0b100 or 0b101 => AddressingMode.ZeroPageYIndexed,  // STX or LDX
                     0b101 => AddressingMode.ZeroPageXIndexed,
                     0b110 => AddressingMode.Implicit,
-                    0b111 when instructionCode is 0b100 or 0b101 => AddressingMode.AbsoluteYIndexed,  // SHX (unofficial) or LDX
+                    0b111 when instructionCode is 0b100 or 0b101 => AddressingMode.AbsoluteYIndexed,  // SHX (UNOFFICIAL) or LDX
                     0b111 => AddressingMode.AbsoluteXIndexed,
                     _ => throw new Exception()
                 },
