@@ -17,11 +17,29 @@
 
     public record Registers
     {
+        /// <summary>
+        /// Accumulator
+        /// </summary>
         public byte A;
+        /// <summary>
+        /// X Index
+        /// </summary>
         public byte X;
+        /// <summary>
+        /// Y Index
+        /// </summary>
         public byte Y;
+        /// <summary>
+        /// Program Counter
+        /// </summary>
         public ushort PC;
+        /// <summary>
+        /// Stack Pointer
+        /// </summary>
         public byte S;
-        public StatusFlags P;
+        /// <summary>
+        /// Status
+        /// </summary>
+        public StatusFlags P = StatusFlags.Always;
     }
 }

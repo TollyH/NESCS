@@ -49,6 +49,8 @@
 
             AddressingMode addressingMode = GetAddressingMode(instructionGroup, addressingModeCode, instructionCode);
 
+            bool cancelPCIncrement = false;
+
             switch (instructionGroup)
             {
                 // Group One
@@ -99,6 +101,12 @@
                             break;
                         // STA
                         case 0b100:
+                            if (addressingMode == AddressingMode.Immediate)
+                            {
+                                // NOP - unofficial
+                                break;
+                            }
+
                             WriteOperand(addressingMode, CpuRegisters.A);
                             break;
                         // LDA
@@ -151,14 +159,372 @@
                             break;
                     }
                     break;
+                // Group Two
+                case 0b10:
+                    switch (instructionCode)
+                    {
+                        // ASL
+                        case 0b000:
+                            byte initialValue = ReadOperand(addressingMode);
+                            byte result = (byte)(initialValue << 1);
+                            WriteOperand(addressingMode, result);
+
+                            SetZNFlagsFromValue(result);
+                            if ((initialValue & SignBit) == 0)
+                            {
+                                CpuRegisters.P &= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // ROL
+                        case 0b001:
+                            initialValue = ReadOperand(addressingMode);
+                            result = (byte)((initialValue << 1) | (int)(CpuRegisters.P & StatusFlags.Carry));
+                            WriteOperand(addressingMode, result);
+
+                            SetZNFlagsFromValue(result);
+                            if ((initialValue & SignBit) == 0)
+                            {
+                                CpuRegisters.P &= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // LSR
+                        case 0b010:
+                            initialValue = ReadOperand(addressingMode);
+                            result = (byte)(initialValue >> 1);
+                            WriteOperand(addressingMode, result);
+
+                            SetZNFlagsFromValue(result);
+                            if ((initialValue & 1) == 0)
+                            {
+                                CpuRegisters.P &= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // ROR
+                        case 0b011:
+                            initialValue = ReadOperand(addressingMode);
+                            result = (byte)((initialValue >> 1) | ((int)(CpuRegisters.P & StatusFlags.Carry) << 7));
+                            WriteOperand(addressingMode, result);
+
+                            SetZNFlagsFromValue(result);
+                            if ((initialValue & 1) == 0)
+                            {
+                                CpuRegisters.P &= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // STX
+                        // TXA
+                        // TXS
+                        case 0b100:
+                            if (addressingMode == AddressingMode.Implicit)
+                            {
+                                // TXS
+                                CpuRegisters.S = CpuRegisters.X;
+                            }
+                            else
+                            {
+                                // STX & TXA
+                                WriteOperand(addressingMode, CpuRegisters.X);
+                            }
+                            break;
+                        // LDX
+                        // TAX
+                        // TSX
+                        case 0b101:
+                            CpuRegisters.X = addressingMode == AddressingMode.Implicit
+                                ? CpuRegisters.S  // TSX
+                                : ReadOperand(addressingMode);  // LDX & TAX
+
+                            SetZNFlagsFromValue(CpuRegisters.X);
+                            break;
+                        // DEC
+                        // DEX
+                        case 0b110:
+                            if (addressingMode == AddressingMode.Implicit)
+                            {
+                                // DEX
+                                result = --CpuRegisters.X;
+                            }
+                            else
+                            {
+                                // DEC
+                                result = (byte)(ReadOperand(addressingMode) - 1);
+                                WriteOperand(addressingMode, result);
+                            }
+
+                            SetZNFlagsFromValue(result);
+                            break;
+                        // INC
+                        // NOP
+                        case 0b111:
+                            if (addressingMode == AddressingMode.Implicit)
+                            {
+                                // NOP
+                                break;
+                            }
+
+                            // INC
+                            result = (byte)(ReadOperand(addressingMode) + 1);
+                            WriteOperand(addressingMode, result);
+
+                            SetZNFlagsFromValue(result);
+                            break;
+                    }
+                    break;
+                // Group Three
+                case 0b00:
+                    if (addressingMode == AddressingMode.Relative)
+                    {
+                        // Conditional branch instructions (BPL, BMI, BVC, BVS, BCC, BCS, BNE, BEQ)
+                        StatusFlags flagToCheck = (instructionCode & 0b110) switch
+                        {
+                            0b000 => StatusFlags.Negative,
+                            0b010 => StatusFlags.Overflow,
+                            0b100 => StatusFlags.Carry,
+                            0b110 => StatusFlags.Zero,
+                            _ => throw new Exception()
+                        };
+                        bool invert = (instructionCode & 1) == 0;
+
+                        if (((CpuRegisters.P & flagToCheck) != 0) ^ invert)
+                        {
+                            CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                            cancelPCIncrement = true;
+                        }
+
+                        break;
+                    }
+
+                    if (addressingModeCode == 0b010)
+                    {
+                        switch (instructionCode)
+                        {
+                            // PHP
+                            case 0b000:
+                                CpuRegisters.P |= StatusFlags.Break;
+                                PushStack((byte)CpuRegisters.P);
+                                break;
+                            // PLP
+                            case 0b001:
+                                CpuRegisters.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                break;
+                            // PHA
+                            case 0b010:
+                                PushStack(CpuRegisters.A);
+                                break;
+                            // PLA
+                            case 0b011:
+                                CpuRegisters.A = PopStack();
+                                SetZNFlagsFromAccumulator();
+                                break;
+                            // DEY
+                            case 0b100:
+                                SetZNFlagsFromValue(--CpuRegisters.Y);
+                                break;
+                            // TAY
+                            case 0b101:
+                                CpuRegisters.Y = CpuRegisters.A;
+                                SetZNFlagsFromAccumulator();
+                                break;
+                            // INY
+                            case 0b110:
+                                SetZNFlagsFromValue(++CpuRegisters.Y);
+                                break;
+                            // INX
+                            case 0b111:
+                                SetZNFlagsFromValue(++CpuRegisters.X);
+                                break;
+                        }
+
+                        break;
+                    }
+
+                    if (addressingModeCode == 0b110)
+                    {
+                        if (instructionCode == 0b100)
+                        {
+                            // TYA
+                            CpuRegisters.A = CpuRegisters.Y;
+                            SetZNFlagsFromAccumulator();
+                            break;
+                        }
+
+                        // Manual flag change (CLC, SEC, CLI, SEI, CLV, CLD, SED)
+                        StatusFlags flagToChange = (instructionCode & 0b110) switch
+                        {
+                            0b000 => StatusFlags.Carry,
+                            0b010 => StatusFlags.InterruptDisable,
+                            0b100 => StatusFlags.Overflow,
+                            0b110 => StatusFlags.Decimal,
+                            _ => throw new Exception()
+                        };
+                        bool clear = (instructionCode & 1) == 0;
+
+                        if (clear)
+                        {
+                            CpuRegisters.P &= ~flagToChange;
+                        }
+                        else
+                        {
+                            CpuRegisters.P |= flagToChange;
+                        }
+
+                        break;
+                    }
+
+                    switch (instructionCode)
+                    {
+                        // BRK
+                        case 0b000:
+                            PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
+                            CpuRegisters.P |= StatusFlags.Break;
+                            PushStack((byte)CpuRegisters.P);
+                            CpuRegisters.P |= StatusFlags.InterruptDisable;
+                            CpuRegisters.PC = 0xFFFE;
+
+                            cancelPCIncrement = true;
+                            break;
+                        // JSR
+                        // BIT
+                        case 0b001:
+                            if (addressingModeCode == 0b000)
+                            {
+                                // JSR
+                                PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
+                                break;
+                            }
+
+                            // BIT
+                            byte result = (byte)(CpuRegisters.A & ReadOperand(addressingMode));
+
+                            SetZNFlagsFromValue(result);
+
+                            if ((result & 0b01000000) == 0)
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                            }
+                            else
+                            {
+                                CpuRegisters.P |= StatusFlags.Overflow;
+                            }
+                            break;
+                        // RTI
+                        // RTS
+                        // JMP
+                        case 0b010:
+                        case 0b011:
+                            if (addressingModeCode == 0b000)
+                            {
+                                // RTI & RTS
+                                if (instructionCode == 0b010)
+                                {
+                                    // RTI
+                                    CpuRegisters.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                }
+
+                                CpuRegisters.PC = PopStackTwoByte();
+
+                                if (instructionCode == 0b011)
+                                {
+                                    // RTS
+                                    CpuRegisters.PC++;
+                                }
+                            }
+
+                            CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                            cancelPCIncrement = true;
+                            break;
+                        // STY
+                        case 0b100:
+                            WriteOperand(addressingMode, CpuRegisters.Y);
+                            break;
+                        // LDY
+                        case 0b101:
+                            CpuRegisters.Y = ReadOperand(addressingMode);
+                            SetZNFlagsFromValue(CpuRegisters.Y);
+                            break;
+                        // CPY
+                        case 0b110:
+                            byte initialValue = CpuRegisters.Y;
+                            result = (byte)(CpuRegisters.Y - ReadOperand(addressingMode));
+
+                            SetZNFlagsFromValue(result);
+
+                            if (result > initialValue)
+                            {
+                                CpuRegisters.P |= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Carry;
+                            }
+                            break;
+                        // CPX
+                        case 0b111:
+                            initialValue = CpuRegisters.X;
+                            result = (byte)(CpuRegisters.X - ReadOperand(addressingMode));
+
+                            SetZNFlagsFromValue(result);
+
+                            if (result > initialValue)
+                            {
+                                CpuRegisters.P |= StatusFlags.Carry;
+                            }
+                            else
+                            {
+                                CpuRegisters.P &= ~StatusFlags.Carry;
+                            }
+                            break;
+                    }
+                    break;
+            }
+
+            if (!cancelPCIncrement)
+            {
+                IncrementPCPastOperand(addressingMode);
             }
 
             return 0;
         }
 
         /// <summary>
+        /// Get the address that an instruction operand will operate on for the given addressing mode at the current PC register value.
+        /// </summary>
+        public ushort GetAddressFromOperand(AddressingMode mode)
+        {
+            return mode switch
+            {
+                AddressingMode.ZeroPage => SystemMemory[CpuRegisters.PC],
+                AddressingMode.ZeroPageXIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.X),
+                AddressingMode.ZeroPageYIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.Y),
+                AddressingMode.Relative => (ushort)(SystemMemory[CpuRegisters.PC] + CpuRegisters.PC + 2),
+                AddressingMode.Absolute => SystemMemory.ReadTwoBytes(CpuRegisters.PC),
+                AddressingMode.AbsoluteXIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.X),
+                AddressingMode.AbsoluteYIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.Y),
+                AddressingMode.Indirect => SystemMemory.ReadTwoBytesIndirectBug(SystemMemory.ReadTwoBytes(CpuRegisters.PC)),
+                AddressingMode.IndexedIndirect => SystemMemory.ReadTwoBytes((byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.X)),
+                AddressingMode.IndirectIndexed => (ushort)(SystemMemory.ReadTwoBytes(SystemMemory[CpuRegisters.PC]) + CpuRegisters.Y),
+                _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not operate on memory.", nameof(mode))
+            };
+        }
+
+        /// <summary>
         /// Read an instruction operand for the given addressing mode at the current PC register value.
-        /// PC will be automatically incremented to the start of the next instruction.
         /// </summary>
         /// <returns>
         /// One of the following:
@@ -171,62 +537,70 @@
         {
             return mode switch
             {
-                AddressingMode.Immediate => SystemMemory[CpuRegisters.PC++],
-                AddressingMode.ZeroPage => SystemMemory[SystemMemory[CpuRegisters.PC++]],
-                AddressingMode.ZeroPageXIndexed => SystemMemory[(byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.X)],
-                AddressingMode.ZeroPageYIndexed => SystemMemory[(byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.Y)],
-                AddressingMode.Relative => SystemMemory[(ushort)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.PC)],
-                AddressingMode.Absolute => SystemMemory[SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo())],
-                AddressingMode.AbsoluteXIndexed => SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()) + CpuRegisters.X)],
-                AddressingMode.AbsoluteYIndexed => SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()) + CpuRegisters.Y)],
-                AddressingMode.Indirect => SystemMemory[SystemMemory.ReadTwoBytes(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()))],
-                AddressingMode.IndexedIndirect => SystemMemory[SystemMemory.ReadTwoBytes((byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.X))],
-                AddressingMode.IndirectIndexed => SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(SystemMemory[CpuRegisters.PC++]) + CpuRegisters.Y)],
+                AddressingMode.Immediate => SystemMemory[CpuRegisters.PC],
+                AddressingMode.Accumulator => CpuRegisters.A,
+                AddressingMode.ZeroPage
+                    or AddressingMode.ZeroPageXIndexed
+                    or AddressingMode.ZeroPageYIndexed
+                    or AddressingMode.Relative
+                    or AddressingMode.Absolute
+                    or AddressingMode.AbsoluteXIndexed
+                    or AddressingMode.AbsoluteYIndexed
+                    or AddressingMode.Indirect
+                    or AddressingMode.IndexedIndirect
+                    or AddressingMode.IndirectIndexed
+                    => SystemMemory[GetAddressFromOperand(mode)],
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode))
             };
         }
 
         /// <summary>
         /// Write to an instruction operand for the given addressing mode at the current PC register value.
-        /// PC will be automatically incremented to the start of the next instruction.
         /// </summary>
         public void WriteOperand(AddressingMode mode, byte value)
         {
             switch (mode)
             {
+                case AddressingMode.Accumulator:
+                    CpuRegisters.A = value;
+                    break;
                 case AddressingMode.ZeroPage:
-                    SystemMemory[SystemMemory[CpuRegisters.PC++]] = value;
-                    break;
                 case AddressingMode.ZeroPageXIndexed:
-                    SystemMemory[(byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.X)] = value;
-                    break;
                 case AddressingMode.ZeroPageYIndexed:
-                    SystemMemory[(byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.Y)] = value;
-                    break;
                 case AddressingMode.Relative:
-                    SystemMemory[(ushort)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.PC)] = value;
-                    break;
                 case AddressingMode.Absolute:
-                    SystemMemory[SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo())] = value;
-                    break;
                 case AddressingMode.AbsoluteXIndexed:
-                    SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()) + CpuRegisters.X)] = value;
-                    break;
                 case AddressingMode.AbsoluteYIndexed:
-                    SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()) + CpuRegisters.Y)] = value;
-                    break;
                 case AddressingMode.Indirect:
-                    SystemMemory[SystemMemory.ReadTwoBytes(SystemMemory.ReadTwoBytes(CpuRegisters.PC.PostIncrementTwo()))] = value;
-                    break;
                 case AddressingMode.IndexedIndirect:
-                    SystemMemory[SystemMemory.ReadTwoBytes((byte)(SystemMemory[CpuRegisters.PC++] + CpuRegisters.X))] = value;
-                    break;
                 case AddressingMode.IndirectIndexed:
-                    SystemMemory[(ushort)(SystemMemory.ReadTwoBytes(SystemMemory[CpuRegisters.PC++]) + CpuRegisters.Y)] = value;
+                    SystemMemory[GetAddressFromOperand(mode)] = value;
                     break;
                 default:
                     throw new ArgumentException($"The given AddressingMode ({mode}) does not have a writeable operand.", nameof(mode));
             }
+        }
+
+        public byte PopStack()
+        {
+            return SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)];
+        }
+
+        public void PushStack(byte value)
+        {
+            SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = value;
+        }
+
+        public ushort PopStackTwoByte()
+        {
+            return (ushort)((SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)] << 8)
+                & (SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)]));
+        }
+
+        public void PushStackTwoByte(ushort value)
+        {
+            SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = (byte)(value >> 8);
+            SystemMemory[(ushort)(0x0100 + --CpuRegisters.S)] = (byte)(value & 0xFF);
         }
 
         private void SetZNFlagsFromValue(byte value)
@@ -255,6 +629,27 @@
             SetZNFlagsFromValue(CpuRegisters.A);
         }
 
+        private void IncrementPCPastOperand(AddressingMode mode)
+        {
+            CpuRegisters.PC += mode switch
+            {
+                AddressingMode.ZeroPageXIndexed => 1,
+                AddressingMode.ZeroPageYIndexed => 1,
+                AddressingMode.AbsoluteXIndexed => 2,
+                AddressingMode.AbsoluteYIndexed => 2,
+                AddressingMode.IndexedIndirect => 1,
+                AddressingMode.IndirectIndexed => 1,
+                AddressingMode.Accumulator => 0,
+                AddressingMode.Immediate => 1,
+                AddressingMode.ZeroPage => 1,
+                AddressingMode.Absolute => 2,
+                AddressingMode.Relative => 2,
+                AddressingMode.Indirect => 2,
+                AddressingMode.Implicit => 0,
+                _ => 0
+            };
+        }
+
         public static AddressingMode GetAddressingMode(byte instructionGroup, byte addressingModeCode, byte instructionCode)
         {
             return instructionGroup switch
@@ -277,13 +672,14 @@
                 {
                     0b000 => AddressingMode.Immediate,
                     0b001 => AddressingMode.ZeroPage,
+                    0b010 when instructionCode >= 0b110 => AddressingMode.Implicit,
                     0b010 => AddressingMode.Accumulator,
                     0b011 => AddressingMode.Absolute,
                     0b100 => AddressingMode.Implicit,  // UNOFFICIAL
                     0b101 when instructionCode is 0b100 or 0b101 => AddressingMode.ZeroPageYIndexed,  // STX or LDX
                     0b101 => AddressingMode.ZeroPageXIndexed,
                     0b110 => AddressingMode.Implicit,
-                    0b111 when instructionCode == 0b101 => AddressingMode.AbsoluteYIndexed,  // LDX
+                    0b111 when instructionCode is 0b100 or 0b101 => AddressingMode.AbsoluteYIndexed,  // SHX (unofficial) or LDX
                     0b111 => AddressingMode.AbsoluteXIndexed,
                     _ => throw new Exception()
                 },
