@@ -20,19 +20,14 @@
         Implicit  // operand = 0 bytes
     }
 
-    public class Processor
+    public class Processor(Memory systemMemory)
     {
         public const byte SignBit = unchecked((byte)sbyte.MinValue);
-
-        public const long NtscClockTicks = 1789773 * TimeSpan.TicksPerSecond;
-        public const long PalClockTicks = 1662607 * TimeSpan.TicksPerSecond;
-
-        public TimeSpan CurrentClock { get; set; } = TimeSpan.FromTicks(NtscClockTicks);
 
         public bool Halted { get; private set; } = false;
 
         public readonly Registers CpuRegisters = new();
-        public readonly Memory SystemMemory = new();
+        public readonly Memory SystemMemory = systemMemory;
 
         /// <summary>
         /// Read and execute a single instruction from memory based on the current PC register state.
