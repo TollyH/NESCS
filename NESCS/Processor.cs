@@ -24,29 +24,142 @@
     {
         public const byte SignBit = unchecked((byte)sbyte.MinValue);
 
+        public const ushort NonMaskableInterruptVector = 0xFFFA;
+        public const ushort ResetVector = 0xFFFC;
+        public const ushort InterruptRequestVector = 0xFFFE;
+
         public bool Halted { get; private set; } = false;
 
         public readonly Registers CpuRegisters = new();
         public readonly Memory SystemMemory = systemMemory;
 
+        private bool nmiQueued = false;
+        private bool irqQueued = false;
+
+        // The number of cycles to wait before executing the decoded instruction
+        // - used to emulate instructions taking multiple clock cycles.
+        private int waitingCycles = 0;
+
+        // Decoded opcode data
+        private byte opcode;
+        private byte instructionGroup;
+        private byte addressingModeCode;
+        private byte instructionCode;
+        private AddressingMode addressingMode;
+
         /// <summary>
-        /// Read and execute a single instruction from memory based on the current PC register state.
-        /// PC will be automatically incremented to the start of the next instruction.
+        /// Simulate a reset of the processor, either via the reset line or via a power cycle.
+        /// </summary>
+        public void Reset(bool powerCycle)
+        {
+            if (powerCycle)
+            {
+                CpuRegisters.A = 0;
+                CpuRegisters.X = 0;
+                CpuRegisters.Y = 0;
+                CpuRegisters.P = StatusFlags.Always;
+            }
+
+            CpuRegisters.P |= StatusFlags.InterruptDisable;
+
+            CpuRegisters.PC = SystemMemory.ReadTwoBytes(ResetVector);
+
+            if (powerCycle)
+            {
+                CpuRegisters.S = 0xFD;
+            }
+            else
+            {
+                InterruptStatePush();
+            }
+        }
+
+        /// <summary>
+        /// Execute a single CPU cycle.
+        /// For multi-cycle instructions, the effect of the instruction will not be seen
+        /// until this method has been executed enough times to clear all the cycles.
+        /// </summary>
+        public void ExecuteClockCycle()
+        {
+            if (Halted)
+            {
+                return;
+            }
+
+            if (waitingCycles == 0)
+            {
+                waitingCycles = ReadNextOpcode();
+            }
+
+            if (--waitingCycles == 0)
+            {
+                bool irqDisableSetBeforeExecute = (CpuRegisters.P & StatusFlags.InterruptDisable) != 0;
+
+                ExecutePendingInstruction();
+
+                if (nmiQueued)
+                {
+                    nmiQueued = false;
+
+                    StartInterruptHandler(NonMaskableInterruptVector);
+                }
+
+                if (irqQueued)
+                {
+                    irqQueued = false;
+
+                    // RTI changing the IRQ disable flag takes immediate effect, everything else waits for one instruction
+                    bool irqDisabled = opcode == 0x40  // RTI
+                        ? (CpuRegisters.P & StatusFlags.InterruptDisable) != 0
+                        : irqDisableSetBeforeExecute;
+
+                    if (irqDisabled)
+                    {
+                        return;
+                    }
+
+                    StartInterruptHandler(InterruptRequestVector);
+                }
+            }
+        }
+
+        public void NonMaskableInterrupt()
+        {
+            nmiQueued = true;
+        }
+
+        public void InterruptRequest()
+        {
+            irqQueued = true;
+        }
+
+        /// <summary>
+        /// Read and decode the next opcode to execute from memory.
+        /// The PC register will be incremented to the address of the first operand, or the next instruction if there are none.
         /// </summary>
         /// <returns>
-        /// The number of CPU clock cycles the instruction would have taken to execute on real hardware.
-        /// A value of 0 means that an illegal opcode causing the CPU to crash was executed.
+        /// The number of cycles the instruction would take to execute on a real CPU.
         /// </returns>
-        public int InterpretNextInstruction()
+        private int ReadNextOpcode()
         {
-            byte opcode = SystemMemory.InternalRAM[CpuRegisters.PC++];
+            opcode = SystemMemory.InternalRAM[CpuRegisters.PC++];
 
-            byte instructionGroup = (byte)(opcode & 0b11);
-            byte addressingModeCode = (byte)((opcode >> 2) & 0b111);
-            byte instructionCode = (byte)(opcode >> 5);
+            instructionGroup = (byte)(opcode & 0b11);
+            addressingModeCode = (byte)((opcode >> 2) & 0b111);
+            instructionCode = (byte)(opcode >> 5);
 
-            AddressingMode addressingMode = GetAddressingMode(instructionGroup, addressingModeCode, instructionCode);
+            addressingMode = GetAddressingMode(instructionGroup, addressingModeCode, instructionCode);
 
+            // TODO: Calculate cycle count
+            return 0;
+        }
+
+        /// <summary>
+        /// Execute the instruction for the last read opcode.
+        /// The PC register will be automatically incremented to the start of the next instruction.
+        /// </summary>
+        private void ExecutePendingInstruction()
+        {
             bool cancelPCIncrement = false;
 
             switch (instructionGroup)
@@ -157,7 +270,7 @@
                     {
                         // UNOFFICIAL - Crash/halt the processor (often referred to as STP/KIL/JAM/HLT)
                         Halted = true;
-                        return 0;
+                        return;
                     }
 
                     switch (instructionCode)
@@ -317,8 +430,7 @@
                         {
                             // PHP
                             case 0b000:
-                                CpuRegisters.P |= StatusFlags.Break;
-                                PushStack((byte)CpuRegisters.P);
+                                PushStack((byte)(CpuRegisters.P | StatusFlags.Break));
                                 break;
                             // PLP
                             case 0b001:
@@ -394,12 +506,8 @@
                         case 0b000:
                             if (addressingModeCode == 0b000)
                             {
-                                PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
-                                CpuRegisters.P |= StatusFlags.Break;
-                                PushStack((byte)CpuRegisters.P);
-                                CpuRegisters.P |= StatusFlags.InterruptDisable;
-                                CpuRegisters.PC = 0xFFFE;
-
+                                IncrementPCPastOperand(addressingMode);
+                                StartInterruptHandler(InterruptRequestVector);
                                 cancelPCIncrement = true;
                             }
                             break;
@@ -818,8 +926,20 @@
             {
                 IncrementPCPastOperand(addressingMode);
             }
+        }
 
-            return 0;
+        private void StartInterruptHandler(ushort vector)
+        {
+            InterruptStatePush();
+
+            CpuRegisters.PC = SystemMemory.ReadTwoBytes(vector);
+        }
+
+        private void InterruptStatePush()
+        {
+            PushStackTwoByte(CpuRegisters.PC);
+            PushStack((byte)(CpuRegisters.P | StatusFlags.Break));
+            CpuRegisters.P |= StatusFlags.InterruptDisable;
         }
 
         /// <summary>
