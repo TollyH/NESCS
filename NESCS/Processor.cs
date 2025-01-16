@@ -41,11 +41,54 @@
         private int waitingCycles = 0;
 
         // Decoded opcode data
+        private bool fetchNextInstruction = true;
         private byte opcode;
         private byte instructionGroup;
         private byte addressingModeCode;
         private byte instructionCode;
         private AddressingMode addressingMode;
+
+        private int[] baseCycleCounts = new int[256]
+        {
+         // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+            7, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,  // 00
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  // 10
+            6, 6, 0, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 4, 6, 6,  // 20
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  // 30
+            6, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 3, 4, 6, 6,  // 40
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  // 50
+            6, 6, 0, 8, 3, 3, 5, 5, 4, 2, 2, 2, 5, 4, 6, 6,  // 60
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  // 70
+            2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,  // 80
+            2, 6, 0, 6, 4, 4, 4, 4, 2, 5, 2, 5, 5, 5, 5, 5,  // 90
+            2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,  // A0
+            2, 5, 0, 5, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 4, 4,  // B0
+            2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  // C0
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,  // D0
+            2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  // E0
+            2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7   // F0
+        };
+
+        private bool[] incrementCyclesOnPageBoundary = new bool[256]
+        {
+         // 0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 00
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false,  // 10
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 20
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false,  // 30
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 40
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false,  // 50
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 60
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false,  // 70
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 80
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 90
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // A0
+            false, true , false, true , false, false, false, false, false, true , false, true , true , true , true , true ,  // B0
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // C0
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false,  // D0
+            false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // E0
+            false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false   // F0
+        };
 
         /// <summary>
         /// Simulate a reset of the processor, either via the reset line or via a power cycle.
@@ -86,13 +129,16 @@
                 return;
             }
 
-            if (waitingCycles == 0)
+            if (fetchNextInstruction)
             {
-                waitingCycles = ReadNextOpcode();
+                waitingCycles += ReadNextOpcode();
+                fetchNextInstruction = false;
             }
 
             if (--waitingCycles == 0)
             {
+                fetchNextInstruction = true;
+
                 bool irqDisableSetBeforeExecute = (CpuRegisters.P & StatusFlags.InterruptDisable) != 0;
 
                 ExecutePendingInstruction();
@@ -150,8 +196,12 @@
 
             addressingMode = GetAddressingMode(instructionGroup, addressingModeCode, instructionCode);
 
-            // TODO: Calculate cycle count
-            return 0;
+            int cycles = baseCycleCounts[opcode];
+            if (incrementCyclesOnPageBoundary[opcode] && (GetAddressFromOperand(addressingMode) & 0xFF) == 0xFF)
+            {
+                cycles++;
+            }
+            return cycles;
         }
 
         /// <summary>
@@ -417,7 +467,16 @@
 
                         if (((CpuRegisters.P & flagToCheck) != 0) ^ invert)
                         {
-                            CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                            ushort newAddress = GetAddressFromOperand(addressingMode);
+                            // A branch being taken requires an additional clock cycle
+                            waitingCycles++;
+                            if ((CpuRegisters.PC & 0xFF00) != (newAddress & 0xFF00))
+                            {
+                                // Branching to a different page requires 2 additional cycles
+                                waitingCycles++;
+                            }
+
+                            CpuRegisters.PC = newAddress;
                             cancelPCIncrement = true;
                         }
 
