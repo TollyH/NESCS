@@ -48,6 +48,9 @@
         private byte instructionCode;
         private AddressingMode addressingMode;
 
+        // Used to prevent some UNOFFICIAL NOPs from affecting status flags
+        private bool lockFlags = false;
+
         private int[] baseCycleCounts = new int[256]
         {
          // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
@@ -131,6 +134,7 @@
 
             if (fetchNextInstruction)
             {
+                lockFlags = false;
                 waitingCycles += ReadNextOpcode();
                 fetchNextInstruction = false;
             }
@@ -211,6 +215,8 @@
         private void ExecutePendingInstruction()
         {
             bool cancelPCIncrement = false;
+
+            StatusFlags startFlags = CpuRegisters.P;
 
             switch (instructionGroup)
             {
@@ -981,6 +987,11 @@
                     break;
             }
 
+            if (lockFlags)
+            {
+                CpuRegisters.P = startFlags;
+            }
+
             if (!cancelPCIncrement)
             {
                 IncrementPCPastOperand(addressingMode);
@@ -1034,6 +1045,13 @@
         /// </returns>
         private byte ReadOperand(AddressingMode mode)
         {
+            if (mode == AddressingMode.Implicit)
+            {
+                // UNOFFICIAL - Reading implicit operand is a NOP
+                lockFlags = true;
+                return 0;
+            }
+
             return mode switch
             {
                 AddressingMode.Immediate => SystemMemory[CpuRegisters.PC],
@@ -1049,7 +1067,6 @@
                     or AddressingMode.IndexedIndirect
                     or AddressingMode.IndirectIndexed
                     => SystemMemory[GetAddressFromOperand(mode)],
-                AddressingMode.Implicit => 0,  // UNOFFICIAL - Reading implicit operand is a NOP
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode))
             };
         }
@@ -1078,6 +1095,7 @@
                     break;
                 case AddressingMode.Immediate:
                     // UNOFFICIAL - Writing to an immediate operand is a NOP
+                    lockFlags = true;
                     break;
                 default:
                     throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode));
