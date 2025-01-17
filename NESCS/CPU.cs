@@ -20,7 +20,7 @@
         Implicit  // operand = 0 bytes
     }
 
-    public class Processor(Memory systemMemory)
+    public class CPU(Memory systemMemory)
     {
         public const byte SignBit = unchecked((byte)sbyte.MinValue);
 

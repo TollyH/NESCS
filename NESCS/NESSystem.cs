@@ -2,43 +2,87 @@
 
 namespace NESCS
 {
-    public readonly record struct CycleClock(double ClockHz, int CpuClockDivisor, int PpuClockDivisor, int ApuFrameCounterDivisor)
+    public readonly record struct CycleClock(double FramesPerSecond, double PpuDotsPerFrame, double CpuClocksPerPpuDot)
     {
-        public readonly long TicksPerClock = (long)((1 / ClockHz) * Stopwatch.Frequency);
+        public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
 
     public class NESSystem
     {
-        public static readonly CycleClock NtscClockPreset = new(236250000 / 11d, 12, 4, 3937500);  // 60 Hz
-        public static readonly CycleClock PalClockPreset = new(26601712.5, 16, 5, 532034);  // 50 Hz
+        public const double NtscFramesPerSecond = 60;
+        public const double NtscMainClockHz = 236250000 / 11d;
+        public const double NtscPpuClockDivisor = 4;
+        public const double NtscCpuClocksPerPpuDot = 1 / 3d;
+
+        public const double PalFramesPerSecond = 50;
+        public const double PalMainClockHz = 26601712.5;
+        public const double PalPpuClockDivisor = 5;
+        public const double PalCpuClocksPerPpuDot = 1 / 3.2;
+
+        private const int minimumSleepMs = 50;
+
+        public static readonly CycleClock NtscClockPreset = new(
+            NtscFramesPerSecond,
+            NtscMainClockHz / NtscPpuClockDivisor / NtscFramesPerSecond,
+            NtscCpuClocksPerPpuDot);
+        public static readonly CycleClock PalClockPreset = new(
+            PalFramesPerSecond,
+            PalMainClockHz / PalPpuClockDivisor / PalFramesPerSecond,
+            PalCpuClocksPerPpuDot);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
         public readonly Memory SystemMemory = new();
 
-        public readonly Processor CpuCore;
+        public readonly CPU CpuCore;
 
-        private int ticksUntilCpuTick = 0;
+        public readonly PPU PpuCore;
+
+        // This is floating point to account for clocks (like PAL)
+        // where the CPU and PPU don't cleanly align
+        private double pendingCpuCycles = 0;
 
         public NESSystem()
         {
-            CpuCore = new Processor(SystemMemory);
+            CpuCore = new CPU(SystemMemory);
+            PpuCore = new PPU(SystemMemory);
         }
 
-        public void StartClock()
+        public void StartClock(CancellationToken cancellationToken)
         {
-            long nextTick = Stopwatch.GetTimestamp() + CurrentClock.TicksPerClock;
-            ClockTick();
-
-            while (Stopwatch.GetTimestamp() < nextTick) { }
-        }
-
-        public void ClockTick()
-        {
-            if (--ticksUntilCpuTick <= 0)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                CpuCore.ExecuteClockCycle();
-                ticksUntilCpuTick = CurrentClock.CpuClockDivisor;
+                long nextFrame = Stopwatch.GetTimestamp() + CurrentClock.TicksPerFrame;
+
+                ProcessFrame();
+
+                long currentTimestamp;
+                while ((currentTimestamp = Stopwatch.GetTimestamp()) < nextFrame)
+                {
+                    int msDelay = (int)((nextFrame - currentTimestamp) * Stopwatch.Frequency / 1000);
+                    if (msDelay >= minimumSleepMs)
+                    {
+                        // Delay for slightly less than required to prevent sleeping too long
+                        Thread.Sleep(msDelay - minimumSleepMs);
+                    }
+                }
+            }
+        }
+
+        public void ProcessFrame()
+        {
+            for (int dot = 0; dot < CurrentClock.PpuDotsPerFrame; dot++)
+            {
+                PpuCore.ProcessNextDot();
+
+                int cpuCyclesThisDot = (int)pendingCpuCycles;
+                pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
+                pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
+
+                for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
+                {
+                    CpuCore.ExecuteClockCycle();
+                }
             }
         }
     }
