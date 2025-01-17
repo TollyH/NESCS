@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35527.113 d17.12
+VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NESCS", "NESCS\NESCS.csproj", "{E33273DA-5445-417E-9379-A16B5E1D3B37}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NESCS_Test", "NESCS_Test\NESCS_Test.csproj", "{4CB4C671-54B4-4EEF-9F59-6407CF9FE2CD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CB4C671-54B4-4EEF-9F59-6407CF9FE2CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CB4C671-54B4-4EEF-9F59-6407CF9FE2CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CB4C671-54B4-4EEF-9F59-6407CF9FE2CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CB4C671-54B4-4EEF-9F59-6407CF9FE2CD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

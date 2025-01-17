@@ -20,7 +20,7 @@
         Implicit  // operand = 0 bytes
     }
 
-    public class CPU(Memory systemMemory)
+    public class CPU
     {
         public const byte SignBit = unchecked((byte)sbyte.MinValue);
 
@@ -31,7 +31,7 @@
         public bool Halted { get; private set; } = false;
 
         public readonly Registers CpuRegisters = new();
-        public readonly Memory SystemMemory = systemMemory;
+        public readonly Memory SystemMemory;
 
         private bool nmiQueued = false;
         private bool irqQueued = false;
@@ -92,6 +92,13 @@
             false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // E0
             false, true , false, false, false, false, false, false, false, true , false, false, true , true , false, false   // F0
         };
+
+        public CPU(Memory systemMemory)
+        {
+            SystemMemory = systemMemory;
+
+            Reset(true);
+        }
 
         /// <summary>
         /// Simulate a reset of the processor, either via the reset line or via a power cycle.
@@ -192,7 +199,7 @@
         /// </returns>
         private int ReadNextOpcode()
         {
-            opcode = SystemMemory.InternalRAM[CpuRegisters.PC++];
+            opcode = SystemMemory[CpuRegisters.PC++];
 
             instructionGroup = (byte)(opcode & 0b11);
             addressingModeCode = (byte)((opcode >> 2) & 0b111);
@@ -588,6 +595,8 @@
                             {
                                 // JSR
                                 PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
+                                CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                                cancelPCIncrement = true;
                                 break;
                             }
 
@@ -1038,7 +1047,7 @@
                 AddressingMode.ZeroPage => SystemMemory[CpuRegisters.PC],
                 AddressingMode.ZeroPageXIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.X),
                 AddressingMode.ZeroPageYIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.Y),
-                AddressingMode.Relative => (ushort)(SystemMemory[CpuRegisters.PC] + CpuRegisters.PC + 2),
+                AddressingMode.Relative => (ushort)(SystemMemory[CpuRegisters.PC] + CpuRegisters.PC + 1),
                 AddressingMode.Absolute => SystemMemory.ReadTwoBytes(CpuRegisters.PC),
                 AddressingMode.AbsoluteXIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.X),
                 AddressingMode.AbsoluteYIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.Y),
@@ -1180,7 +1189,7 @@
                 AddressingMode.Immediate => 1,
                 AddressingMode.ZeroPage => 1,
                 AddressingMode.Absolute => 2,
-                AddressingMode.Relative => 2,
+                AddressingMode.Relative => 1,
                 AddressingMode.Indirect => 2,
                 AddressingMode.Implicit => 0,
                 _ => 0
@@ -1253,6 +1262,11 @@
                 },
                 _ => throw new Exception()
             };
+        }
+
+        public override string ToString()
+        {
+            return $"{CpuRegisters.PC:X4} A:{CpuRegisters.A:X2} X:{CpuRegisters.X:X2} Y:{CpuRegisters.Y:X2} P:{(byte)CpuRegisters.P:X2} SP:{CpuRegisters.S:X2}";
         }
     }
 }

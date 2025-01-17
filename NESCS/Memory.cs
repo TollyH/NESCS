@@ -26,7 +26,7 @@
             return address switch
             {
                 <= 0x1FFF => new MemoryRef(InternalRAM, (ushort)(address & 0x07FF)),
-                <= 0x2007 => new MemoryRef(PpuRegisters, (ushort)(address & 0x0008)),
+                <= 0x3FFF => new MemoryRef(PpuRegisters, (ushort)(address & 0x0007)),
                 <= 0x4017 => new MemoryRef(ApuIoRegisters, (ushort)(address - 0x4000)),
                 <= 0x401F => new MemoryRef(TestModeRegisters, (ushort)(address - 0x4018)),
                 <= 0xFFFF => new MemoryRef(CartridgeRAM, (ushort)(address - 0x4020))
