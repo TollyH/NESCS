@@ -1139,8 +1139,8 @@
 
         private ushort PopStackTwoByte()
         {
-            return (ushort)((SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)] << 8)
-                & (SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)]));
+            return (ushort)((SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)])
+                | (SystemMemory[(ushort)(0x0100 + CpuRegisters.S++)] << 8));
         }
 
         private void PushStackTwoByte(ushort value)

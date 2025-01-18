@@ -49,7 +49,7 @@
 
         public ushort ReadTwoBytes(ushort address)
         {
-            return (ushort)(this[address] + (this[(ushort)(address + 1)] << 8));
+            return (ushort)(this[address] | (this[(ushort)(address + 1)] << 8));
         }
 
         // Same as ReadTwoBytes, except if the address ends in 0xFF, the second address read will have 0x0100 subtracted from it.
@@ -57,7 +57,7 @@
         // This is used to replicate a bug with the indirect addressing mode in the 6502 processor.
         public ushort ReadTwoBytesIndirectBug(ushort address)
         {
-            return (ushort)(this[address] + (this[(ushort)((address & 0xFF) == 0xFF ? (address + 1) - 0x0100 : address + 1)] << 8));
+            return (ushort)(this[address] | (this[(ushort)((address & 0xFF) == 0xFF ? (address + 1) - 0x0100 : address + 1)] << 8));
         }
 
         public void WriteTwoBytes(ushort address, ushort value)
