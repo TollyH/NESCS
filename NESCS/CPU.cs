@@ -289,7 +289,7 @@
 
                             SetZNFlagsFromValue(result);
 
-                            if (result > initialValue)
+                            if (result > initialValue || result == 0)
                             {
                                 CpuRegisters.P |= StatusFlags.Carry;
                             }
@@ -306,7 +306,7 @@
 
                             SetZNFlagsFromAccumulator();
 
-                            if (CpuRegisters.A > initialValue)
+                            if (CpuRegisters.A > initialValue || CpuRegisters.A == 0)
                             {
                                 CpuRegisters.P |= StatusFlags.Carry;
                             }
@@ -662,7 +662,7 @@
 
                             SetZNFlagsFromValue(result);
 
-                            if (result > initialValue)
+                            if (result > initialValue || result == 0)
                             {
                                 CpuRegisters.P |= StatusFlags.Carry;
                             }
@@ -678,7 +678,7 @@
 
                             SetZNFlagsFromValue(result);
 
-                            if (result > initialValue)
+                            if (result > initialValue || result == 0)
                             {
                                 CpuRegisters.P |= StatusFlags.Carry;
                             }
@@ -782,7 +782,7 @@
 
                                 SetZNFlagsFromValue(CpuRegisters.X);
 
-                                if (CpuRegisters.X > initialValue)
+                                if (CpuRegisters.X > initialValue || CpuRegisters.X == 0)
                                 {
                                     CpuRegisters.P |= StatusFlags.Carry;
                                 }
@@ -799,7 +799,7 @@
 
                                 SetZNFlagsFromAccumulator();
 
-                                if (CpuRegisters.A > initialValue)
+                                if (CpuRegisters.A > initialValue || CpuRegisters.A == 0)
                                 {
                                     CpuRegisters.P |= StatusFlags.Carry;
                                 }
@@ -969,7 +969,7 @@
 
                             SetZNFlagsFromValue(result);
 
-                            if (result > initialValue)
+                            if (result > initialValue || result == 0)
                             {
                                 CpuRegisters.P |= StatusFlags.Carry;
                             }
@@ -1119,7 +1119,8 @@
                     SystemMemory[GetAddressFromOperand(mode)] = value;
                     break;
                 case AddressingMode.Immediate:
-                    // UNOFFICIAL - Writing to an immediate operand is a NOP
+                case AddressingMode.Implicit:
+                    // UNOFFICIAL - Writing to an immediate/implicit operand is a NOP
                     lockFlags = true;
                     break;
                 default:
