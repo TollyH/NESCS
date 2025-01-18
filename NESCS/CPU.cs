@@ -51,7 +51,7 @@
         // Used to prevent some UNOFFICIAL NOPs from affecting status flags
         private bool lockFlags = false;
 
-        private int[] baseCycleCounts = new int[256]
+        private readonly int[] baseCycleCounts = new int[256]
         {
          // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
             7, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,  // 00
@@ -72,7 +72,7 @@
             2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7   // F0
         };
 
-        private bool[] incrementCyclesOnPageBoundary = new bool[256]
+        private readonly bool[] incrementCyclesOnCarryOut = new bool[256]
         {
          // 0      1      2      3      4      5      6      7      8      9      A      B      C      D      E      F
             false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,  // 00
@@ -208,7 +208,7 @@
             addressingMode = GetAddressingMode(instructionGroup, addressingModeCode, instructionCode);
 
             int cycles = baseCycleCounts[opcode];
-            if (incrementCyclesOnPageBoundary[opcode] && (GetAddressFromOperand(addressingMode) & 0xFF) == 0xFF)
+            if (incrementCyclesOnCarryOut[opcode] && OperandCausesCarryOut(addressingMode))
             {
                 cycles++;
             }
@@ -488,7 +488,7 @@
                             ushort newAddress = GetAddressFromOperand(addressingMode);
                             // A branch being taken requires an additional clock cycle
                             waitingCycles++;
-                            if ((CpuRegisters.PC & 0xFF00) != (newAddress & 0xFF00))
+                            if (((CpuRegisters.PC + 1) & 0xFF00) != (newAddress & 0xFF00))
                             {
                                 // Branching to a different page requires 2 additional cycles
                                 waitingCycles++;
@@ -1069,6 +1069,20 @@
             PushStackTwoByte(CpuRegisters.PC);
             PushStack((byte)(CpuRegisters.P | StatusFlags.Break));
             CpuRegisters.P |= StatusFlags.InterruptDisable;
+        }
+
+        /// <summary>
+        /// Determines whether the given operand caused a page boundary to be crossed during its calculation.
+        /// </summary>
+        private bool OperandCausesCarryOut(AddressingMode mode)
+        {
+            return mode switch
+            {
+                AddressingMode.AbsoluteXIndexed => SystemMemory[CpuRegisters.PC] + CpuRegisters.X >= 0x0100,
+                AddressingMode.AbsoluteYIndexed => SystemMemory[CpuRegisters.PC] + CpuRegisters.Y >= 0x0100,
+                AddressingMode.IndirectIndexed => SystemMemory[SystemMemory[CpuRegisters.PC]] + CpuRegisters.Y >= 0x0100,
+                _ => false
+            };
         }
 
         /// <summary>
