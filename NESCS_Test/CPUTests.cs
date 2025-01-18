@@ -31,14 +31,14 @@ namespace NESCS_Test
             {
                 cpu.ExecuteClockCycle();
 
-                if (cpu.CpuRegisters.PC == 0xC66E)
-                {
-                    breakNext = true;
-                }
-
                 if (breakNext)
                 {
                     break;
+                }
+
+                if (cpu.CpuRegisters.PC == 0xC66E)
+                {
+                    breakNext = true;
                 }
             }
 

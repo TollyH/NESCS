@@ -19,7 +19,7 @@
         public readonly byte[] PpuRegisters = new byte[0x0008];
         public readonly byte[] ApuIoRegisters = new byte[0x0018];
         public readonly byte[] TestModeRegisters = new byte[0x0008];
-        public readonly byte[] CartridgeRAM = new byte[0xBFE0];
+        public readonly byte[] Cartridge = new byte[0xBFE0];
 
         public MemoryRef MapAddress(ushort address)
         {
@@ -29,7 +29,7 @@
                 <= 0x3FFF => new MemoryRef(PpuRegisters, (ushort)(address & 0x0007)),
                 <= 0x4017 => new MemoryRef(ApuIoRegisters, (ushort)(address - 0x4000)),
                 <= 0x401F => new MemoryRef(TestModeRegisters, (ushort)(address - 0x4018)),
-                <= 0xFFFF => new MemoryRef(CartridgeRAM, (ushort)(address - 0x4020))
+                <= 0xFFFF => new MemoryRef(Cartridge, (ushort)(address - 0x4020))
             };
         }
 
