@@ -1,49 +1,42 @@
 ﻿namespace NESCS
 {
-    public readonly record struct MemoryRef(byte[] Region, ushort Offset)
-    {
-        public byte ReadByte()
-        {
-            return Region[Offset];
-        }
-
-        public void WriteByte(byte value)
-        {
-            Region[Offset] = value;
-        }
-    }
-
-    public class Memory
+    public class Memory(PPURegisters ppuRegisters)
     {
         public readonly byte[] InternalRAM = new byte[0x0800];
-        public readonly byte[] PpuRegisters = new byte[0x0008];
-        public readonly byte[] ApuIoRegisters = new byte[0x0018];
-        public readonly byte[] TestModeRegisters = new byte[0x0008];
+        public readonly PPURegisters PpuRegisters = ppuRegisters;
         public readonly byte[] Cartridge = new byte[0xBFE0];
-
-        public MemoryRef MapAddress(ushort address)
-        {
-            return address switch
-            {
-                <= 0x1FFF => new MemoryRef(InternalRAM, (ushort)(address & 0x07FF)),
-                <= 0x3FFF => new MemoryRef(PpuRegisters, (ushort)(address & 0x0007)),
-                <= 0x4017 => new MemoryRef(ApuIoRegisters, (ushort)(address - 0x4000)),
-                <= 0x401F => new MemoryRef(TestModeRegisters, (ushort)(address - 0x4018)),
-                <= 0xFFFF => new MemoryRef(Cartridge, (ushort)(address - 0x4020))
-            };
-        }
 
         public byte this[ushort address]
         {
             get
             {
-                MemoryRef memRef = MapAddress(address);
-                return memRef.ReadByte();
+                return address switch
+                {
+                    <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
+                    <= 0x3FFF => PpuRegisters[(ushort)(address & 0x2007)],
+                    <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
+                    <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
+                    <= 0xFFFF => Cartridge[(ushort)(address - 0x4020)]
+                };
             }
             set
             {
-                MemoryRef memRef = MapAddress(address);
-                memRef.WriteByte(value);
+                switch (address)
+                {
+                    case <= 0x1FFF:
+                        InternalRAM[(ushort)(address & 0x07FF)] = value;
+                        break;
+                    case <= 0x3FFF:
+                        PpuRegisters[(ushort)(address & 0x0007)] = value;
+                        break;
+                    case <= 0x4017:
+                        throw new NotImplementedException();
+                    case <= 0x401F:
+                        throw new NotImplementedException();
+                    case <= 0xFFFF:
+                        Cartridge[(ushort)(address - 0x4020)] = value;
+                        break;
+                }
             }
         }
 

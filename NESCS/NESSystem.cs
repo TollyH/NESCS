@@ -2,37 +2,27 @@
 
 namespace NESCS
 {
-    public readonly record struct CycleClock(double FramesPerSecond, double PpuDotsPerFrame, double CpuClocksPerPpuDot)
+    public readonly record struct CycleClock(double FramesPerSecond, int PpuDotsPerFrame, double CpuClocksPerPpuDot)
     {
         public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
 
     public class NESSystem
     {
-        public const double NtscFramesPerSecond = 60;
-        public const double NtscMainClockHz = 236250000 / 11d;
-        public const double NtscPpuClockDivisor = 4;
-        public const double NtscCpuClocksPerPpuDot = 1 / 3d;
-
-        public const double PalFramesPerSecond = 50;
-        public const double PalMainClockHz = 26601712.5;
-        public const double PalPpuClockDivisor = 5;
-        public const double PalCpuClocksPerPpuDot = 1 / 3.2;
-
         private const int minimumSleepMs = 50;
 
         public static readonly CycleClock NtscClockPreset = new(
-            NtscFramesPerSecond,
-            NtscMainClockHz / NtscPpuClockDivisor / NtscFramesPerSecond,
-            NtscCpuClocksPerPpuDot);
+            60,
+            89341,  // pre-render line is one dot shorter in every odd frame
+            1 / 3d);
         public static readonly CycleClock PalClockPreset = new(
-            PalFramesPerSecond,
-            PalMainClockHz / PalPpuClockDivisor / PalFramesPerSecond,
-            PalCpuClocksPerPpuDot);
+            50,
+            106392,
+            1 / 3.2);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
-        public readonly Memory SystemMemory = new();
+        public readonly Memory SystemMemory;
 
         public readonly CPU CpuCore;
 
@@ -44,8 +34,9 @@ namespace NESCS
 
         public NESSystem()
         {
+            PpuCore = new PPU();
+            SystemMemory = new Memory(PpuCore.Registers);
             CpuCore = new CPU(SystemMemory);
-            PpuCore = new PPU(SystemMemory);
         }
 
         public void StartClock(CancellationToken cancellationToken)

@@ -20,7 +20,7 @@ namespace NESCS_Test
 
             CPU cpu = new(memory)
             {
-                CpuRegisters =
+                Registers =
                 {
                     PC = 0xC000
                 }
@@ -36,7 +36,7 @@ namespace NESCS_Test
                     break;
                 }
 
-                if (cpu.CpuRegisters.PC == 0xC66E)
+                if (cpu.Registers.PC == 0xC66E)
                 {
                     breakNext = true;
                 }

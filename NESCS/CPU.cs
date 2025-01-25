@@ -30,7 +30,7 @@
 
         public bool Halted { get; private set; } = false;
 
-        public readonly Registers CpuRegisters = new();
+        public readonly CPURegisters Registers = new();
         public readonly Memory SystemMemory;
 
         private bool nmiQueued = false;
@@ -107,19 +107,19 @@
         {
             if (powerCycle)
             {
-                CpuRegisters.A = 0;
-                CpuRegisters.X = 0;
-                CpuRegisters.Y = 0;
-                CpuRegisters.P = StatusFlags.Always;
+                Registers.A = 0;
+                Registers.X = 0;
+                Registers.Y = 0;
+                Registers.P = StatusFlags.Always;
             }
 
-            CpuRegisters.P |= StatusFlags.InterruptDisable;
+            Registers.P |= StatusFlags.InterruptDisable;
 
-            CpuRegisters.PC = SystemMemory.ReadTwoBytes(ResetVector);
+            Registers.PC = SystemMemory.ReadTwoBytes(ResetVector);
 
             if (powerCycle)
             {
-                CpuRegisters.S = 0xFD;
+                Registers.S = 0xFD;
             }
             else
             {
@@ -150,7 +150,7 @@
             {
                 fetchNextInstruction = true;
 
-                bool irqDisableSetBeforeExecute = (CpuRegisters.P & StatusFlags.InterruptDisable) != 0;
+                bool irqDisableSetBeforeExecute = (Registers.P & StatusFlags.InterruptDisable) != 0;
 
                 ExecutePendingInstruction();
 
@@ -167,7 +167,7 @@
 
                     // RTI changing the IRQ disable flag takes immediate effect, everything else waits for one instruction
                     bool irqDisabled = opcode == 0x40  // RTI
-                        ? (CpuRegisters.P & StatusFlags.InterruptDisable) != 0
+                        ? (Registers.P & StatusFlags.InterruptDisable) != 0
                         : irqDisableSetBeforeExecute;
 
                     if (irqDisabled)
@@ -199,7 +199,7 @@
         /// </returns>
         private int ReadNextOpcode()
         {
-            opcode = SystemMemory[CpuRegisters.PC++];
+            opcode = SystemMemory[Registers.PC++];
 
             instructionGroup = (byte)(opcode & 0b11);
             addressingModeCode = (byte)((opcode >> 2) & 0b111);
@@ -223,7 +223,7 @@
         {
             bool cancelPCIncrement = false;
 
-            StatusFlags startFlags = CpuRegisters.P;
+            StatusFlags startFlags = Registers.P;
 
             switch (instructionGroup)
             {
@@ -233,96 +233,96 @@
                     {
                         // ORA
                         case 0b000:
-                            CpuRegisters.A |= ReadOperand(addressingMode);
+                            Registers.A |= ReadOperand(addressingMode);
                             SetZNFlagsFromAccumulator();
                             break;
                         // AND
                         case 0b001:
-                            CpuRegisters.A &= ReadOperand(addressingMode);
+                            Registers.A &= ReadOperand(addressingMode);
                             SetZNFlagsFromAccumulator();
                             break;
                         // EOR
                         case 0b010:
-                            CpuRegisters.A ^= ReadOperand(addressingMode);
+                            Registers.A ^= ReadOperand(addressingMode);
                             SetZNFlagsFromAccumulator();
                             break;
                         // ADC
                         case 0b011:
-                            byte initialValue = CpuRegisters.A;
+                            byte initialValue = Registers.A;
                             byte operand = ReadOperand(addressingMode);
-                            CpuRegisters.A += (byte)(operand + (byte)(CpuRegisters.P & StatusFlags.Carry));
+                            Registers.A += (byte)(operand + (byte)(Registers.P & StatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
-                            if (CpuRegisters.A < initialValue)
+                            if (Registers.A < initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
 
                             int initialSign = initialValue & SignBit;
-                            if (initialSign == (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            if (initialSign == (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                CpuRegisters.P |= StatusFlags.Overflow;
+                                Registers.P |= StatusFlags.Overflow;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~StatusFlags.Overflow;
                             }
                             break;
                         // STA
                         case 0b100:
-                            WriteOperand(addressingMode, CpuRegisters.A);
+                            WriteOperand(addressingMode, Registers.A);
                             break;
                         // LDA
                         case 0b101:
-                            CpuRegisters.A = ReadOperand(addressingMode);
+                            Registers.A = ReadOperand(addressingMode);
                             SetZNFlagsFromAccumulator();
                             break;
                         // CMP
                         case 0b110:
-                            initialValue = CpuRegisters.A;
-                            byte result = (byte)(CpuRegisters.A - ReadOperand(addressingMode));
+                            initialValue = Registers.A;
+                            byte result = (byte)(Registers.A - ReadOperand(addressingMode));
 
                             SetZNFlagsFromValue(result);
 
                             if (result <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             break;
                         // SBC
                         case 0b111:
-                            initialValue = CpuRegisters.A;
+                            initialValue = Registers.A;
                             operand = ReadOperand(addressingMode);
-                            CpuRegisters.A -= (byte)(operand + (byte)((CpuRegisters.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                            Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
-                            if (CpuRegisters.A <= initialValue)
+                            if (Registers.A <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
 
                             initialSign = initialValue & SignBit;
-                            if (initialSign != (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                CpuRegisters.P |= StatusFlags.Overflow;
+                                Registers.P |= StatusFlags.Overflow;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~StatusFlags.Overflow;
                             }
                             break;
                     }
@@ -347,27 +347,27 @@
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // ROL
                         case 0b001:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue << 1) | (int)(CpuRegisters.P & StatusFlags.Carry));
+                            result = (byte)((initialValue << 1) | (int)(Registers.P & StatusFlags.Carry));
                             WriteOperand(addressingMode, result);
 
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // LSR
@@ -379,27 +379,27 @@
                             SetZNFlagsFromValue(result);
                             if ((initialValue & 1) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // ROR
                         case 0b011:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue >> 1) | ((int)(CpuRegisters.P & StatusFlags.Carry) << 7));
+                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
                             WriteOperand(addressingMode, result);
 
                             SetZNFlagsFromValue(result);
                             if ((initialValue & 1) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // STX
@@ -410,13 +410,13 @@
                             if (addressingMode == AddressingMode.Implicit)
                             {
                                 // TXS
-                                CpuRegisters.S = CpuRegisters.X;
+                                Registers.S = Registers.X;
                             }
                             else
                             {
                                 WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteYIndexed
-                                    ? (byte)(CpuRegisters.X & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHX
-                                    : CpuRegisters.X);  // STX & TXA
+                                    ? (byte)(Registers.X & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHX
+                                    : Registers.X);  // STX & TXA
 
                                 if (addressingMode == AddressingMode.Accumulator)
                                 {
@@ -428,11 +428,11 @@
                         // TAX
                         // TSX
                         case 0b101:
-                            CpuRegisters.X = addressingMode == AddressingMode.Implicit
-                                ? CpuRegisters.S  // TSX
+                            Registers.X = addressingMode == AddressingMode.Implicit
+                                ? Registers.S  // TSX
                                 : ReadOperand(addressingMode);  // LDX & TAX
 
-                            SetZNFlagsFromValue(CpuRegisters.X);
+                            SetZNFlagsFromValue(Registers.X);
                             break;
                         // DEC
                         // DEX
@@ -440,7 +440,7 @@
                             if (addressingModeCode == 0b010)
                             {
                                 // DEX
-                                result = --CpuRegisters.X;
+                                result = --Registers.X;
                             }
                             else
                             {
@@ -483,18 +483,18 @@
                         };
                         bool invert = (instructionCode & 1) == 0;
 
-                        if (((CpuRegisters.P & flagToCheck) != 0) ^ invert)
+                        if (((Registers.P & flagToCheck) != 0) ^ invert)
                         {
                             ushort newAddress = GetAddressFromOperand(addressingMode);
                             // A branch being taken requires an additional clock cycle
                             waitingCycles++;
-                            if (((CpuRegisters.PC + 1) & 0xFF00) != (newAddress & 0xFF00))
+                            if (((Registers.PC + 1) & 0xFF00) != (newAddress & 0xFF00))
                             {
                                 // Branching to a different page requires 2 additional cycles
                                 waitingCycles++;
                             }
 
-                            CpuRegisters.PC = newAddress;
+                            Registers.PC = newAddress;
                             cancelPCIncrement = true;
                         }
 
@@ -507,37 +507,37 @@
                         {
                             // PHP
                             case 0b000:
-                                PushStack((byte)(CpuRegisters.P | StatusFlags.Break));
+                                PushStack((byte)(Registers.P | StatusFlags.Break));
                                 break;
                             // PLP
                             case 0b001:
-                                CpuRegisters.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                Registers.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
                                 break;
                             // PHA
                             case 0b010:
-                                PushStack(CpuRegisters.A);
+                                PushStack(Registers.A);
                                 break;
                             // PLA
                             case 0b011:
-                                CpuRegisters.A = PopStack();
+                                Registers.A = PopStack();
                                 SetZNFlagsFromAccumulator();
                                 break;
                             // DEY
                             case 0b100:
-                                SetZNFlagsFromValue(--CpuRegisters.Y);
+                                SetZNFlagsFromValue(--Registers.Y);
                                 break;
                             // TAY
                             case 0b101:
-                                CpuRegisters.Y = CpuRegisters.A;
+                                Registers.Y = Registers.A;
                                 SetZNFlagsFromAccumulator();
                                 break;
                             // INY
                             case 0b110:
-                                SetZNFlagsFromValue(++CpuRegisters.Y);
+                                SetZNFlagsFromValue(++Registers.Y);
                                 break;
                             // INX
                             case 0b111:
-                                SetZNFlagsFromValue(++CpuRegisters.X);
+                                SetZNFlagsFromValue(++Registers.X);
                                 break;
                         }
 
@@ -549,7 +549,7 @@
                         if (instructionCode == 0b100)
                         {
                             // TYA
-                            CpuRegisters.A = CpuRegisters.Y;
+                            Registers.A = Registers.Y;
                             SetZNFlagsFromAccumulator();
                             break;
                         }
@@ -567,11 +567,11 @@
 
                         if (clear || flagToChange == StatusFlags.Overflow)
                         {
-                            CpuRegisters.P &= ~flagToChange;
+                            Registers.P &= ~flagToChange;
                         }
                         else
                         {
-                            CpuRegisters.P |= flagToChange;
+                            Registers.P |= flagToChange;
                         }
 
                         break;
@@ -594,8 +594,8 @@
                             if (addressingModeCode == 0b000)
                             {
                                 // JSR
-                                PushStackTwoByte((ushort)(CpuRegisters.PC + 1));
-                                CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                                PushStackTwoByte((ushort)(Registers.PC + 1));
+                                Registers.PC = GetAddressFromOperand(addressingMode);
                                 cancelPCIncrement = true;
                                 break;
                             }
@@ -609,31 +609,31 @@
                             // BIT
                             byte operand = ReadOperand(addressingMode);
 
-                            if ((CpuRegisters.A & operand) == 0)
+                            if ((Registers.A & operand) == 0)
                             {
-                                CpuRegisters.P |= StatusFlags.Zero;
+                                Registers.P |= StatusFlags.Zero;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Zero;
+                                Registers.P &= ~StatusFlags.Zero;
                             }
 
                             if ((operand & SignBit) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Negative;
+                                Registers.P &= ~StatusFlags.Negative;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Negative;
+                                Registers.P |= StatusFlags.Negative;
                             }
 
                             if ((operand & 0b01000000) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~StatusFlags.Overflow;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Overflow;
+                                Registers.P |= StatusFlags.Overflow;
                             }
                             break;
                         // RTI
@@ -647,21 +647,21 @@
                                 if (instructionCode == 0b010)
                                 {
                                     // RTI
-                                    CpuRegisters.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                    Registers.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
                                 }
 
-                                CpuRegisters.PC = PopStackTwoByte();
+                                Registers.PC = PopStackTwoByte();
 
                                 if (instructionCode == 0b011)
                                 {
                                     // RTS
-                                    CpuRegisters.PC++;
+                                    Registers.PC++;
                                 }
                             }
                             else if (addressingModeCode == 0b011)
                             {
                                 // JMP
-                                CpuRegisters.PC = GetAddressFromOperand(addressingMode);
+                                Registers.PC = GetAddressFromOperand(addressingMode);
                                 cancelPCIncrement = true;
                             }
                             break;
@@ -669,13 +669,13 @@
                         // UNOFFICIAL - SHY
                         case 0b100:
                             WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteXIndexed
-                                ? (byte)(CpuRegisters.Y & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHY
-                                : CpuRegisters.Y);  // STY
+                                ? (byte)(Registers.Y & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHY
+                                : Registers.Y);  // STY
                             break;
                         // LDY
                         case 0b101:
-                            CpuRegisters.Y = ReadOperand(addressingMode);
-                            SetZNFlagsFromValue(CpuRegisters.Y);
+                            Registers.Y = ReadOperand(addressingMode);
+                            SetZNFlagsFromValue(Registers.Y);
                             break;
                         // CPY
                         case 0b110:
@@ -685,18 +685,18 @@
                                 break;
                             }
 
-                            byte initialValue = CpuRegisters.Y;
-                            byte result = (byte)(CpuRegisters.Y - ReadOperand(addressingMode));
+                            byte initialValue = Registers.Y;
+                            byte result = (byte)(Registers.Y - ReadOperand(addressingMode));
 
                             SetZNFlagsFromValue(result);
 
                             if (result <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             break;
                         // CPX
@@ -707,18 +707,18 @@
                                 break;
                             }
 
-                            initialValue = CpuRegisters.X;
-                            result = (byte)(CpuRegisters.X - ReadOperand(addressingMode));
+                            initialValue = Registers.X;
+                            result = (byte)(Registers.X - ReadOperand(addressingMode));
 
                             SetZNFlagsFromValue(result);
 
                             if (result <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             break;
                     }
@@ -740,116 +740,116 @@
                             // ANC
                             case 0b000:
                             case 0b001:
-                                CpuRegisters.A &= ReadOperand(addressingMode);
+                                Registers.A &= ReadOperand(addressingMode);
                                 SetZNFlagsFromAccumulator();
 
-                                if ((CpuRegisters.P & StatusFlags.Negative) == 0)
+                                if ((Registers.P & StatusFlags.Negative) == 0)
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~StatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P |= StatusFlags.Carry;
+                                    Registers.P |= StatusFlags.Carry;
                                 }
                                 break;
                             // ALR
                             case 0b010:
-                                CpuRegisters.A &= ReadOperand(addressingMode);
+                                Registers.A &= ReadOperand(addressingMode);
 
-                                byte initialValue = CpuRegisters.A;
+                                byte initialValue = Registers.A;
                                 byte result = (byte)(initialValue >> 1);
-                                CpuRegisters.A = result;
+                                Registers.A = result;
 
                                 SetZNFlagsFromValue(result);
                                 if ((initialValue & 1) == 0)
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~StatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P |= StatusFlags.Carry;
+                                    Registers.P |= StatusFlags.Carry;
                                 }
                                 break;
                             // ARR
                             case 0b011:
-                                CpuRegisters.A &= ReadOperand(addressingMode);
+                                Registers.A &= ReadOperand(addressingMode);
 
-                                initialValue = CpuRegisters.A;
-                                result = (byte)((initialValue >> 1) | ((int)(CpuRegisters.P & StatusFlags.Carry) << 7));
-                                CpuRegisters.A = result;
+                                initialValue = Registers.A;
+                                result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
+                                Registers.A = result;
 
                                 SetZNFlagsFromValue(result);
 
                                 if ((initialValue & 0b01000000) == 0)
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~StatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P |= StatusFlags.Carry;
+                                    Registers.P |= StatusFlags.Carry;
                                 }
 
                                 if (((initialValue & 0b01000000) ^ (initialValue & 0b00100000)) == 0)
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Overflow;
+                                    Registers.P &= ~StatusFlags.Overflow;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P |= StatusFlags.Overflow;
+                                    Registers.P |= StatusFlags.Overflow;
                                 }
                                 break;
                             // XAA
                             case 0b100:
-                                CpuRegisters.A &= (byte)(ReadOperand(addressingMode) & CpuRegisters.X);
+                                Registers.A &= (byte)(ReadOperand(addressingMode) & Registers.X);
                                 SetZNFlagsFromAccumulator();
                                 break;
                             // LAX
                             case 0b101:
-                                CpuRegisters.A &= ReadOperand(addressingMode);
-                                CpuRegisters.X = CpuRegisters.A;
+                                Registers.A &= ReadOperand(addressingMode);
+                                Registers.X = Registers.A;
                                 SetZNFlagsFromAccumulator();
                                 break;
                             // AXS
                             case 0b110:
-                                initialValue = CpuRegisters.X;
-                                CpuRegisters.X = (byte)((CpuRegisters.A & CpuRegisters.X) - ReadOperand(addressingMode));
+                                initialValue = Registers.X;
+                                Registers.X = (byte)((Registers.A & Registers.X) - ReadOperand(addressingMode));
 
-                                SetZNFlagsFromValue(CpuRegisters.X);
+                                SetZNFlagsFromValue(Registers.X);
 
-                                if (CpuRegisters.X <= initialValue)
+                                if (Registers.X <= initialValue)
                                 {
-                                    CpuRegisters.P |= StatusFlags.Carry;
+                                    Registers.P |= StatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~StatusFlags.Carry;
                                 }
                                 break;
                             // SBC - effectively identical to the official version
                             case 0b111:
-                                initialValue = CpuRegisters.A;
+                                initialValue = Registers.A;
                                 byte operand = ReadOperand(addressingMode);
-                                CpuRegisters.A -= (byte)(operand + (byte)((CpuRegisters.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                                Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
 
                                 SetZNFlagsFromAccumulator();
 
-                                if (CpuRegisters.A <= initialValue)
+                                if (Registers.A <= initialValue)
                                 {
-                                    CpuRegisters.P |= StatusFlags.Carry;
+                                    Registers.P |= StatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~StatusFlags.Carry;
                                 }
 
                                 int initialSign = initialValue & SignBit;
-                                if (initialSign != (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                                if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                                 {
-                                    CpuRegisters.P |= StatusFlags.Overflow;
+                                    Registers.P |= StatusFlags.Overflow;
                                 }
                                 else
                                 {
-                                    CpuRegisters.P &= ~StatusFlags.Overflow;
+                                    Registers.P &= ~StatusFlags.Overflow;
                                 }
                                 break;
                         }
@@ -864,34 +864,34 @@
                             byte result = (byte)(initialValue << 1);
                             WriteOperand(addressingMode, result);
 
-                            CpuRegisters.A |= result;
+                            Registers.A |= result;
 
                             SetZNFlagsFromAccumulator();
                             if ((initialValue & SignBit) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // RLA
                         case 0b001:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue << 1) | (int)(CpuRegisters.P & StatusFlags.Carry));
+                            result = (byte)((initialValue << 1) | (int)(Registers.P & StatusFlags.Carry));
                             WriteOperand(addressingMode, result);
 
-                            CpuRegisters.A &= result;
+                            Registers.A &= result;
 
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // SRE
@@ -900,55 +900,55 @@
                             result = (byte)(initialValue >> 1);
                             WriteOperand(addressingMode, result);
 
-                            CpuRegisters.A ^= result;
+                            Registers.A ^= result;
 
                             SetZNFlagsFromAccumulator();
                             if ((initialValue & 1) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             break;
                         // RRA
                         case 0b011:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue >> 1) | ((int)(CpuRegisters.P & StatusFlags.Carry) << 7));
+                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
                             WriteOperand(addressingMode, result);
 
                             if ((initialValue & 1) == 0)
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
 
-                            initialValue = CpuRegisters.A;
-                            CpuRegisters.A += (byte)(result + (byte)(CpuRegisters.P & StatusFlags.Carry));
+                            initialValue = Registers.A;
+                            Registers.A += (byte)(result + (byte)(Registers.P & StatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
-                            if (CpuRegisters.A < initialValue)
+                            if (Registers.A < initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
 
                             int initialSign = initialValue & SignBit;
-                            if (initialSign == (result & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            if (initialSign == (result & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                CpuRegisters.P |= StatusFlags.Overflow;
+                                Registers.P |= StatusFlags.Overflow;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~StatusFlags.Overflow;
                             }
 
                             break;
@@ -959,20 +959,20 @@
                             if (addressingMode == AddressingMode.IndirectIndexed || addressingModeCode == 0b111)
                             {
                                 // AHX
-                                WriteOperand(addressingMode, (byte)(CpuRegisters.A & CpuRegisters.X & (GetAddressFromOperand(addressingMode) >> 8)));
+                                WriteOperand(addressingMode, (byte)(Registers.A & Registers.X & (GetAddressFromOperand(addressingMode) >> 8)));
                                 break;
                             }
 
                             if (addressingMode == AddressingMode.AbsoluteYIndexed)
                             {
                                 // TAS
-                                CpuRegisters.S = (byte)(CpuRegisters.A & CpuRegisters.X);
-                                WriteOperand(addressingMode, (byte)(CpuRegisters.S & (GetAddressFromOperand(addressingMode) >> 8)));
+                                Registers.S = (byte)(Registers.A & Registers.X);
+                                WriteOperand(addressingMode, (byte)(Registers.S & (GetAddressFromOperand(addressingMode) >> 8)));
                                 break;
                             }
 
                             // SAX
-                            WriteOperand(addressingMode, (byte)(CpuRegisters.A & CpuRegisters.X));
+                            WriteOperand(addressingMode, (byte)(Registers.A & Registers.X));
                             break;
                         // LAX
                         // LAS
@@ -980,15 +980,15 @@
                             if (addressingModeCode == 0b110)
                             {
                                 // LAS
-                                CpuRegisters.S &= ReadOperand(addressingMode);
-                                CpuRegisters.A = CpuRegisters.S;
-                                CpuRegisters.X = CpuRegisters.S;
+                                Registers.S &= ReadOperand(addressingMode);
+                                Registers.A = Registers.S;
+                                Registers.X = Registers.S;
                             }
                             else
                             {
                                 // LAX
-                                CpuRegisters.A = ReadOperand(addressingMode);
-                                CpuRegisters.X = CpuRegisters.A;
+                                Registers.A = ReadOperand(addressingMode);
+                                Registers.X = Registers.A;
                             }
 
                             SetZNFlagsFromAccumulator();
@@ -998,18 +998,18 @@
                             result = (byte)(ReadOperand(addressingMode) - 1);
                             WriteOperand(addressingMode, result);
 
-                            initialValue = CpuRegisters.A;
-                            result = (byte)(CpuRegisters.A - result);
+                            initialValue = Registers.A;
+                            result = (byte)(Registers.A - result);
 
                             SetZNFlagsFromValue(result);
 
                             if (result <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
                             break;
                         // ISC
@@ -1017,29 +1017,29 @@
                             result = (byte)(ReadOperand(addressingMode) + 1);
                             WriteOperand(addressingMode, result);
 
-                            initialValue = CpuRegisters.A;
+                            initialValue = Registers.A;
                             byte operand = ReadOperand(addressingMode);
-                            CpuRegisters.A -= (byte)(operand + (byte)((CpuRegisters.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                            Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
-                            if (CpuRegisters.A <= initialValue)
+                            if (Registers.A <= initialValue)
                             {
-                                CpuRegisters.P |= StatusFlags.Carry;
+                                Registers.P |= StatusFlags.Carry;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~StatusFlags.Carry;
                             }
 
                             initialSign = initialValue & SignBit;
-                            if (initialSign != (operand & SignBit) && initialSign != (CpuRegisters.A & SignBit))
+                            if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                CpuRegisters.P |= StatusFlags.Overflow;
+                                Registers.P |= StatusFlags.Overflow;
                             }
                             else
                             {
-                                CpuRegisters.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~StatusFlags.Overflow;
                             }
                             break;
                     }
@@ -1048,7 +1048,7 @@
 
             if (lockFlags)
             {
-                CpuRegisters.P = startFlags;
+                Registers.P = startFlags;
             }
 
             if (!cancelPCIncrement)
@@ -1061,14 +1061,14 @@
         {
             InterruptStatePush();
 
-            CpuRegisters.PC = SystemMemory.ReadTwoBytes(vector);
+            Registers.PC = SystemMemory.ReadTwoBytes(vector);
         }
 
         private void InterruptStatePush()
         {
-            PushStackTwoByte(CpuRegisters.PC);
-            PushStack((byte)(CpuRegisters.P | StatusFlags.Break));
-            CpuRegisters.P |= StatusFlags.InterruptDisable;
+            PushStackTwoByte(Registers.PC);
+            PushStack((byte)(Registers.P | StatusFlags.Break));
+            Registers.P |= StatusFlags.InterruptDisable;
         }
 
         /// <summary>
@@ -1078,9 +1078,9 @@
         {
             return mode switch
             {
-                AddressingMode.AbsoluteXIndexed => SystemMemory[CpuRegisters.PC] + CpuRegisters.X >= 0x0100,
-                AddressingMode.AbsoluteYIndexed => SystemMemory[CpuRegisters.PC] + CpuRegisters.Y >= 0x0100,
-                AddressingMode.IndirectIndexed => SystemMemory[SystemMemory[CpuRegisters.PC]] + CpuRegisters.Y >= 0x0100,
+                AddressingMode.AbsoluteXIndexed => SystemMemory[Registers.PC] + Registers.X >= 0x0100,
+                AddressingMode.AbsoluteYIndexed => SystemMemory[Registers.PC] + Registers.Y >= 0x0100,
+                AddressingMode.IndirectIndexed => SystemMemory[SystemMemory[Registers.PC]] + Registers.Y >= 0x0100,
                 _ => false
             };
         }
@@ -1092,16 +1092,16 @@
         {
             return mode switch
             {
-                AddressingMode.ZeroPage => SystemMemory[CpuRegisters.PC],
-                AddressingMode.ZeroPageXIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.X),
-                AddressingMode.ZeroPageYIndexed => (byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.Y),
-                AddressingMode.Relative => (ushort)(CpuRegisters.PC + (sbyte)SystemMemory[CpuRegisters.PC] + 1),
-                AddressingMode.Absolute => SystemMemory.ReadTwoBytes(CpuRegisters.PC),
-                AddressingMode.AbsoluteXIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.X),
-                AddressingMode.AbsoluteYIndexed => (ushort)(SystemMemory.ReadTwoBytes(CpuRegisters.PC) + CpuRegisters.Y),
-                AddressingMode.Indirect => SystemMemory.ReadTwoBytesIndirectBug(SystemMemory.ReadTwoBytes(CpuRegisters.PC)),
-                AddressingMode.IndexedIndirect => SystemMemory.ReadTwoBytesIndirectBug((byte)(SystemMemory[CpuRegisters.PC] + CpuRegisters.X)),
-                AddressingMode.IndirectIndexed => (ushort)(SystemMemory.ReadTwoBytesIndirectBug(SystemMemory[CpuRegisters.PC]) + CpuRegisters.Y),
+                AddressingMode.ZeroPage => SystemMemory[Registers.PC],
+                AddressingMode.ZeroPageXIndexed => (byte)(SystemMemory[Registers.PC] + Registers.X),
+                AddressingMode.ZeroPageYIndexed => (byte)(SystemMemory[Registers.PC] + Registers.Y),
+                AddressingMode.Relative => (ushort)(Registers.PC + (sbyte)SystemMemory[Registers.PC] + 1),
+                AddressingMode.Absolute => SystemMemory.ReadTwoBytes(Registers.PC),
+                AddressingMode.AbsoluteXIndexed => (ushort)(SystemMemory.ReadTwoBytes(Registers.PC) + Registers.X),
+                AddressingMode.AbsoluteYIndexed => (ushort)(SystemMemory.ReadTwoBytes(Registers.PC) + Registers.Y),
+                AddressingMode.Indirect => SystemMemory.ReadTwoBytesIndirectBug(SystemMemory.ReadTwoBytes(Registers.PC)),
+                AddressingMode.IndexedIndirect => SystemMemory.ReadTwoBytesIndirectBug((byte)(SystemMemory[Registers.PC] + Registers.X)),
+                AddressingMode.IndirectIndexed => (ushort)(SystemMemory.ReadTwoBytesIndirectBug(SystemMemory[Registers.PC]) + Registers.Y),
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not operate on memory.", nameof(mode))
             };
         }
@@ -1127,8 +1127,8 @@
 
             return mode switch
             {
-                AddressingMode.Immediate => SystemMemory[CpuRegisters.PC],
-                AddressingMode.Accumulator => CpuRegisters.A,
+                AddressingMode.Immediate => SystemMemory[Registers.PC],
+                AddressingMode.Accumulator => Registers.A,
                 AddressingMode.ZeroPage
                     or AddressingMode.ZeroPageXIndexed
                     or AddressingMode.ZeroPageYIndexed
@@ -1152,7 +1152,7 @@
             switch (mode)
             {
                 case AddressingMode.Accumulator:
-                    CpuRegisters.A = value;
+                    Registers.A = value;
                     break;
                 case AddressingMode.ZeroPage:
                 case AddressingMode.ZeroPageXIndexed:
@@ -1178,55 +1178,55 @@
 
         private byte PopStack()
         {
-            return SystemMemory[(ushort)(0x0100 + ++CpuRegisters.S)];
+            return SystemMemory[(ushort)(0x0100 + ++Registers.S)];
         }
 
         private void PushStack(byte value)
         {
-            SystemMemory[(ushort)(0x0100 + CpuRegisters.S--)] = value;
+            SystemMemory[(ushort)(0x0100 + Registers.S--)] = value;
         }
 
         private ushort PopStackTwoByte()
         {
-            return (ushort)((SystemMemory[(ushort)(0x0100 + ++CpuRegisters.S)])
-                | (SystemMemory[(ushort)(0x0100 + ++CpuRegisters.S)] << 8));
+            return (ushort)((SystemMemory[(ushort)(0x0100 + ++Registers.S)])
+                | (SystemMemory[(ushort)(0x0100 + ++Registers.S)] << 8));
         }
 
         private void PushStackTwoByte(ushort value)
         {
-            SystemMemory[(ushort)(0x0100 + CpuRegisters.S--)] = (byte)(value >> 8);
-            SystemMemory[(ushort)(0x0100 + CpuRegisters.S--)] = (byte)(value & 0xFF);
+            SystemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value >> 8);
+            SystemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value & 0xFF);
         }
 
         private void SetZNFlagsFromValue(byte value)
         {
             if (value == 0)
             {
-                CpuRegisters.P |= StatusFlags.Zero;
+                Registers.P |= StatusFlags.Zero;
             }
             else
             {
-                CpuRegisters.P &= ~StatusFlags.Zero;
+                Registers.P &= ~StatusFlags.Zero;
             }
 
             if ((value & SignBit) == 0)
             {
-                CpuRegisters.P &= ~StatusFlags.Negative;
+                Registers.P &= ~StatusFlags.Negative;
             }
             else
             {
-                CpuRegisters.P |= StatusFlags.Negative;
+                Registers.P |= StatusFlags.Negative;
             }
         }
 
         private void SetZNFlagsFromAccumulator()
         {
-            SetZNFlagsFromValue(CpuRegisters.A);
+            SetZNFlagsFromValue(Registers.A);
         }
 
         private void IncrementPCPastOperand(AddressingMode mode)
         {
-            CpuRegisters.PC += mode switch
+            Registers.PC += mode switch
             {
                 AddressingMode.ZeroPageXIndexed => 1,
                 AddressingMode.ZeroPageYIndexed => 1,
@@ -1315,7 +1315,7 @@
 
         public override string ToString()
         {
-            return $"{CpuRegisters.PC:X4} A:{CpuRegisters.A:X2} X:{CpuRegisters.X:X2} Y:{CpuRegisters.Y:X2} P:{(byte)CpuRegisters.P:X2} SP:{CpuRegisters.S:X2}";
+            return $"{Registers.PC:X4} A:{Registers.A:X2} X:{Registers.X:X2} Y:{Registers.Y:X2} P:{(byte)Registers.P:X2} SP:{Registers.S:X2}";
         }
     }
 }

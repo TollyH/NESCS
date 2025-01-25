@@ -1,8 +1,8 @@
 ﻿namespace NESCS
 {
-    public class PPU(Memory systemMemory)
+    public class PPU
     {
-        public readonly Memory SystemMemory = systemMemory;
+        public readonly PPURegisters Registers = new();
 
         public void ProcessNextDot()
         {
