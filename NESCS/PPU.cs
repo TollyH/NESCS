@@ -2,13 +2,22 @@
 {
     public class PPU
     {
+        public const int NtscScanlinesPerFrame = 262;
+        public const int PalScanlinesPerFrame = 312;
+        public const int CyclesPerScanline = 341;
+
         public readonly PPURegisters Registers = new();
         public readonly Mapper InsertedCartridgeMapper;
 
         public readonly byte[] PaletteRAM = new byte[0x20];
         public readonly byte[] ObjectAttributeMemory = new byte[0xFF];
 
+        public int ScanlinesPerFrame { get; set; } = NtscScanlinesPerFrame;
+
         public bool OddFrame { get; private set; } = false;
+
+        public int Scanline { get; private set; }
+        public int Cycle { get; private set; }
 
         public PPU(Mapper insertedCartridgeMapper)
         {
@@ -58,9 +67,45 @@
             Registers.W = false;
 
             OddFrame = false;
+
+            Scanline = 0;
+            Cycle = 0;
         }
 
-        public void ProcessNextDot()
+        /// <summary>
+        /// Run a single cycle of the PPU logic.
+        /// </summary>
+        /// <returns><see langword="true"/> if this was the last cycle of the frame, otherwise <see langword="false"/>.</returns>
+        public bool ProcessNextDot()
+        {
+            RunDotLogic();
+
+            return IncrementCycle();
+        }
+
+        /// <summary>
+        /// Increment the current cycle and, if necessary, the current scanline of the PPU.
+        /// One/both are automatically wrapped back to 0 if this is the end of the current scanline/frame.
+        /// </summary>
+        /// <returns><see langword="true"/> if this was the last cycle of the frame, otherwise <see langword="false"/>.</returns>
+        public bool IncrementCycle()
+        {
+            Cycle++;
+            if (Cycle >= CyclesPerScanline)
+            {
+                Cycle = 0;
+                Scanline++;
+                if (Scanline >= ScanlinesPerFrame)
+                {
+                    Scanline = 0;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void RunDotLogic()
         {
 
         }

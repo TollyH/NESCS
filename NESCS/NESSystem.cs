@@ -2,22 +2,18 @@
 
 namespace NESCS
 {
-    public readonly record struct CycleClock(double FramesPerSecond, int PpuDotsPerFrame, double CpuClocksPerPpuDot)
+    public readonly record struct CycleClock(double FramesPerSecond, double CpuClocksPerPpuDot)
     {
         public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
 
     public class NESSystem
     {
-        private const int minimumSleepMs = 50;
-
         public static readonly CycleClock NtscClockPreset = new(
             60,
-            89341,  // pre-render line is one dot shorter in every odd frame
             1 / 3d);
         public static readonly CycleClock PalClockPreset = new(
             50,
-            106392,
             1 / 3.2);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
@@ -29,6 +25,8 @@ namespace NESCS
         public readonly PPU PpuCore;
 
         public readonly Mapper InsertedCartridgeMapper;
+
+        public event Action<NESSystem>? FrameComplete;
 
         // This is floating point to account for clocks (like PAL)
         // where the CPU and PPU don't cleanly align
@@ -50,33 +48,26 @@ namespace NESCS
 
                 ProcessFrame();
 
-                long currentTimestamp;
-                while ((currentTimestamp = Stopwatch.GetTimestamp()) < nextFrame)
-                {
-                    int msDelay = (int)((nextFrame - currentTimestamp) * Stopwatch.Frequency / 1000);
-                    if (msDelay >= minimumSleepMs)
-                    {
-                        // Delay for slightly less than required to prevent sleeping too long
-                        Thread.Sleep(msDelay - minimumSleepMs);
-                    }
-                }
+                while (Stopwatch.GetTimestamp() < nextFrame) { }
             }
         }
 
         public void ProcessFrame()
         {
-            for (int dot = 0; dot < CurrentClock.PpuDotsPerFrame; dot++)
+            bool frameComplete = PpuCore.ProcessNextDot();
+
+            int cpuCyclesThisDot = (int)pendingCpuCycles;
+            pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
+            pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
+
+            for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
             {
-                PpuCore.ProcessNextDot();
+                CpuCore.ExecuteClockCycle();
+            }
 
-                int cpuCyclesThisDot = (int)pendingCpuCycles;
-                pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
-                pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
-
-                for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
-                {
-                    CpuCore.ExecuteClockCycle();
-                }
+            if (frameComplete)
+            {
+                FrameComplete?.Invoke(this);
             }
         }
     }
