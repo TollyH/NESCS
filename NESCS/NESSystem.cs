@@ -28,14 +28,17 @@ namespace NESCS
 
         public readonly PPU PpuCore;
 
+        public readonly Mapper InsertedCartridgeMapper;
+
         // This is floating point to account for clocks (like PAL)
         // where the CPU and PPU don't cleanly align
         private double pendingCpuCycles = 0;
 
-        public NESSystem()
+        public NESSystem(Mapper insertedCartridgeMapper)
         {
-            PpuCore = new PPU();
-            SystemMemory = new Memory(PpuCore.Registers);
+            InsertedCartridgeMapper = insertedCartridgeMapper;
+            PpuCore = new PPU(InsertedCartridgeMapper);
+            SystemMemory = new Memory(PpuCore.Registers, InsertedCartridgeMapper);
             CpuCore = new CPU(SystemMemory);
         }
 

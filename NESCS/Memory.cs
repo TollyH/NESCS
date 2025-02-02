@@ -1,10 +1,10 @@
 ﻿namespace NESCS
 {
-    public class Memory(PPURegisters ppuRegisters)
+    public class Memory(PPURegisters ppuRegisters, Mapper insertedCartridgeMapper)
     {
         public readonly byte[] InternalRAM = new byte[0x0800];
         public readonly PPURegisters PpuRegisters = ppuRegisters;
-        public readonly byte[] Cartridge = new byte[0xBFE0];
+        public readonly Mapper InsertedCartridgeMapper = insertedCartridgeMapper;
 
         public byte this[ushort address]
         {
@@ -16,7 +16,7 @@
                     <= 0x3FFF => PpuRegisters[(ushort)(address & 0x2007)],
                     <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
                     <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
-                    <= 0xFFFF => Cartridge[(ushort)(address - 0x4020)]
+                    <= 0xFFFF => InsertedCartridgeMapper.MappedCPURead((ushort)(address - 0x4020))
                 };
             }
             set
@@ -34,7 +34,7 @@
                     case <= 0x401F:
                         throw new NotImplementedException();
                     case <= 0xFFFF:
-                        Cartridge[(ushort)(address - 0x4020)] = value;
+                        InsertedCartridgeMapper.MappedCPUWrite((ushort)(address - 0x4020), value);
                         break;
                 }
             }
