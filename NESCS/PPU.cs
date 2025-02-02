@@ -54,7 +54,7 @@
         {
             if (powerCycle)
             {
-                Registers.PPUSTATUS = 0b10100000;
+                Registers.PPUSTATUS = 0;
                 Registers.OAMADDR = 0;
                 Registers.PPUADDR = 0;
             }

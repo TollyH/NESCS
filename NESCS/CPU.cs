@@ -110,10 +110,10 @@
                 Registers.A = 0;
                 Registers.X = 0;
                 Registers.Y = 0;
-                Registers.P = StatusFlags.Always;
+                Registers.P = CPUStatusFlags.Always;
             }
 
-            Registers.P |= StatusFlags.InterruptDisable;
+            Registers.P |= CPUStatusFlags.InterruptDisable;
 
             Registers.PC = SystemMemory.ReadTwoBytes(ResetVector);
 
@@ -150,7 +150,7 @@
             {
                 fetchNextInstruction = true;
 
-                bool irqDisableSetBeforeExecute = (Registers.P & StatusFlags.InterruptDisable) != 0;
+                bool irqDisableSetBeforeExecute = (Registers.P & CPUStatusFlags.InterruptDisable) != 0;
 
                 ExecutePendingInstruction();
 
@@ -167,7 +167,7 @@
 
                     // RTI changing the IRQ disable flag takes immediate effect, everything else waits for one instruction
                     bool irqDisabled = opcode == 0x40  // RTI
-                        ? (Registers.P & StatusFlags.InterruptDisable) != 0
+                        ? (Registers.P & CPUStatusFlags.InterruptDisable) != 0
                         : irqDisableSetBeforeExecute;
 
                     if (irqDisabled)
@@ -223,7 +223,7 @@
         {
             bool cancelPCIncrement = false;
 
-            StatusFlags startFlags = Registers.P;
+            CPUStatusFlags startFlags = Registers.P;
 
             switch (instructionGroup)
             {
@@ -250,27 +250,27 @@
                         case 0b011:
                             byte initialValue = Registers.A;
                             byte operand = ReadOperand(addressingMode);
-                            Registers.A += (byte)(operand + (byte)(Registers.P & StatusFlags.Carry));
+                            Registers.A += (byte)(operand + (byte)(Registers.P & CPUStatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
                             if (Registers.A < initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
 
                             int initialSign = initialValue & SignBit;
                             if (initialSign == (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                Registers.P |= StatusFlags.Overflow;
+                                Registers.P |= CPUStatusFlags.Overflow;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~CPUStatusFlags.Overflow;
                             }
                             break;
                         // STA
@@ -291,38 +291,38 @@
 
                             if (result <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             break;
                         // SBC
                         case 0b111:
                             initialValue = Registers.A;
                             operand = ReadOperand(addressingMode);
-                            Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                            Registers.A -= (byte)(operand + (byte)((Registers.P & CPUStatusFlags.Carry) ^ CPUStatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
                             if (Registers.A <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
 
                             initialSign = initialValue & SignBit;
                             if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                Registers.P |= StatusFlags.Overflow;
+                                Registers.P |= CPUStatusFlags.Overflow;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~CPUStatusFlags.Overflow;
                             }
                             break;
                     }
@@ -347,27 +347,27 @@
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // ROL
                         case 0b001:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue << 1) | (int)(Registers.P & StatusFlags.Carry));
+                            result = (byte)((initialValue << 1) | (int)(Registers.P & CPUStatusFlags.Carry));
                             WriteOperand(addressingMode, result);
 
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // LSR
@@ -379,27 +379,27 @@
                             SetZNFlagsFromValue(result);
                             if ((initialValue & 1) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // ROR
                         case 0b011:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
+                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & CPUStatusFlags.Carry) << 7));
                             WriteOperand(addressingMode, result);
 
                             SetZNFlagsFromValue(result);
                             if ((initialValue & 1) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // STX
@@ -473,12 +473,12 @@
                     if (addressingMode == AddressingMode.Relative)
                     {
                         // Conditional branch instructions (BPL, BMI, BVC, BVS, BCC, BCS, BNE, BEQ)
-                        StatusFlags flagToCheck = (instructionCode & 0b110) switch
+                        CPUStatusFlags flagToCheck = (instructionCode & 0b110) switch
                         {
-                            0b000 => StatusFlags.Negative,
-                            0b010 => StatusFlags.Overflow,
-                            0b100 => StatusFlags.Carry,
-                            0b110 => StatusFlags.Zero,
+                            0b000 => CPUStatusFlags.Negative,
+                            0b010 => CPUStatusFlags.Overflow,
+                            0b100 => CPUStatusFlags.Carry,
+                            0b110 => CPUStatusFlags.Zero,
                             _ => throw new Exception()
                         };
                         bool invert = (instructionCode & 1) == 0;
@@ -507,11 +507,11 @@
                         {
                             // PHP
                             case 0b000:
-                                PushStack((byte)(Registers.P | StatusFlags.Break));
+                                PushStack((byte)(Registers.P | CPUStatusFlags.Break));
                                 break;
                             // PLP
                             case 0b001:
-                                Registers.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                Registers.P = ((CPUStatusFlags)PopStack() | CPUStatusFlags.Always) & ~CPUStatusFlags.Break;
                                 break;
                             // PHA
                             case 0b010:
@@ -555,17 +555,17 @@
                         }
 
                         // Manual flag change (CLC, SEC, CLI, SEI, CLV, CLD, SED)
-                        StatusFlags flagToChange = (instructionCode & 0b110) switch
+                        CPUStatusFlags flagToChange = (instructionCode & 0b110) switch
                         {
-                            0b000 => StatusFlags.Carry,
-                            0b010 => StatusFlags.InterruptDisable,
-                            0b100 => StatusFlags.Overflow,
-                            0b110 => StatusFlags.Decimal,
+                            0b000 => CPUStatusFlags.Carry,
+                            0b010 => CPUStatusFlags.InterruptDisable,
+                            0b100 => CPUStatusFlags.Overflow,
+                            0b110 => CPUStatusFlags.Decimal,
                             _ => throw new Exception()
                         };
                         bool clear = (instructionCode & 1) == 0;
 
-                        if (clear || flagToChange == StatusFlags.Overflow)
+                        if (clear || flagToChange == CPUStatusFlags.Overflow)
                         {
                             Registers.P &= ~flagToChange;
                         }
@@ -611,29 +611,29 @@
 
                             if ((Registers.A & operand) == 0)
                             {
-                                Registers.P |= StatusFlags.Zero;
+                                Registers.P |= CPUStatusFlags.Zero;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Zero;
+                                Registers.P &= ~CPUStatusFlags.Zero;
                             }
 
                             if ((operand & SignBit) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Negative;
+                                Registers.P &= ~CPUStatusFlags.Negative;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Negative;
+                                Registers.P |= CPUStatusFlags.Negative;
                             }
 
                             if ((operand & 0b01000000) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~CPUStatusFlags.Overflow;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Overflow;
+                                Registers.P |= CPUStatusFlags.Overflow;
                             }
                             break;
                         // RTI
@@ -647,7 +647,7 @@
                                 if (instructionCode == 0b010)
                                 {
                                     // RTI
-                                    Registers.P = ((StatusFlags)PopStack() | StatusFlags.Always) & ~StatusFlags.Break;
+                                    Registers.P = ((CPUStatusFlags)PopStack() | CPUStatusFlags.Always) & ~CPUStatusFlags.Break;
                                 }
 
                                 Registers.PC = PopStackTwoByte();
@@ -692,11 +692,11 @@
 
                             if (result <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             break;
                         // CPX
@@ -714,11 +714,11 @@
 
                             if (result <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             break;
                     }
@@ -743,13 +743,13 @@
                                 Registers.A &= ReadOperand(addressingMode);
                                 SetZNFlagsFromAccumulator();
 
-                                if ((Registers.P & StatusFlags.Negative) == 0)
+                                if ((Registers.P & CPUStatusFlags.Negative) == 0)
                                 {
-                                    Registers.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~CPUStatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    Registers.P |= StatusFlags.Carry;
+                                    Registers.P |= CPUStatusFlags.Carry;
                                 }
                                 break;
                             // ALR
@@ -763,11 +763,11 @@
                                 SetZNFlagsFromValue(result);
                                 if ((initialValue & 1) == 0)
                                 {
-                                    Registers.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~CPUStatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    Registers.P |= StatusFlags.Carry;
+                                    Registers.P |= CPUStatusFlags.Carry;
                                 }
                                 break;
                             // ARR
@@ -775,27 +775,27 @@
                                 Registers.A &= ReadOperand(addressingMode);
 
                                 initialValue = Registers.A;
-                                result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
+                                result = (byte)((initialValue >> 1) | ((int)(Registers.P & CPUStatusFlags.Carry) << 7));
                                 Registers.A = result;
 
                                 SetZNFlagsFromValue(result);
 
                                 if ((initialValue & 0b01000000) == 0)
                                 {
-                                    Registers.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~CPUStatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    Registers.P |= StatusFlags.Carry;
+                                    Registers.P |= CPUStatusFlags.Carry;
                                 }
 
                                 if (((initialValue & 0b01000000) ^ (initialValue & 0b00100000)) == 0)
                                 {
-                                    Registers.P &= ~StatusFlags.Overflow;
+                                    Registers.P &= ~CPUStatusFlags.Overflow;
                                 }
                                 else
                                 {
-                                    Registers.P |= StatusFlags.Overflow;
+                                    Registers.P |= CPUStatusFlags.Overflow;
                                 }
                                 break;
                             // XAA
@@ -818,38 +818,38 @@
 
                                 if (Registers.X <= initialValue)
                                 {
-                                    Registers.P |= StatusFlags.Carry;
+                                    Registers.P |= CPUStatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    Registers.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~CPUStatusFlags.Carry;
                                 }
                                 break;
                             // SBC - effectively identical to the official version
                             case 0b111:
                                 initialValue = Registers.A;
                                 byte operand = ReadOperand(addressingMode);
-                                Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                                Registers.A -= (byte)(operand + (byte)((Registers.P & CPUStatusFlags.Carry) ^ CPUStatusFlags.Carry));
 
                                 SetZNFlagsFromAccumulator();
 
                                 if (Registers.A <= initialValue)
                                 {
-                                    Registers.P |= StatusFlags.Carry;
+                                    Registers.P |= CPUStatusFlags.Carry;
                                 }
                                 else
                                 {
-                                    Registers.P &= ~StatusFlags.Carry;
+                                    Registers.P &= ~CPUStatusFlags.Carry;
                                 }
 
                                 int initialSign = initialValue & SignBit;
                                 if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                                 {
-                                    Registers.P |= StatusFlags.Overflow;
+                                    Registers.P |= CPUStatusFlags.Overflow;
                                 }
                                 else
                                 {
-                                    Registers.P &= ~StatusFlags.Overflow;
+                                    Registers.P &= ~CPUStatusFlags.Overflow;
                                 }
                                 break;
                         }
@@ -869,17 +869,17 @@
                             SetZNFlagsFromAccumulator();
                             if ((initialValue & SignBit) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // RLA
                         case 0b001:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue << 1) | (int)(Registers.P & StatusFlags.Carry));
+                            result = (byte)((initialValue << 1) | (int)(Registers.P & CPUStatusFlags.Carry));
                             WriteOperand(addressingMode, result);
 
                             Registers.A &= result;
@@ -887,11 +887,11 @@
                             SetZNFlagsFromValue(result);
                             if ((initialValue & SignBit) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // SRE
@@ -905,50 +905,50 @@
                             SetZNFlagsFromAccumulator();
                             if ((initialValue & 1) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             break;
                         // RRA
                         case 0b011:
                             initialValue = ReadOperand(addressingMode);
-                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & StatusFlags.Carry) << 7));
+                            result = (byte)((initialValue >> 1) | ((int)(Registers.P & CPUStatusFlags.Carry) << 7));
                             WriteOperand(addressingMode, result);
 
                             if ((initialValue & 1) == 0)
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
 
                             initialValue = Registers.A;
-                            Registers.A += (byte)(result + (byte)(Registers.P & StatusFlags.Carry));
+                            Registers.A += (byte)(result + (byte)(Registers.P & CPUStatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
                             if (Registers.A < initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
 
                             int initialSign = initialValue & SignBit;
                             if (initialSign == (result & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                Registers.P |= StatusFlags.Overflow;
+                                Registers.P |= CPUStatusFlags.Overflow;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~CPUStatusFlags.Overflow;
                             }
 
                             break;
@@ -1005,11 +1005,11 @@
 
                             if (result <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
                             break;
                         // ISC
@@ -1019,27 +1019,27 @@
 
                             initialValue = Registers.A;
                             byte operand = ReadOperand(addressingMode);
-                            Registers.A -= (byte)(operand + (byte)((Registers.P & StatusFlags.Carry) ^ StatusFlags.Carry));
+                            Registers.A -= (byte)(operand + (byte)((Registers.P & CPUStatusFlags.Carry) ^ CPUStatusFlags.Carry));
 
                             SetZNFlagsFromAccumulator();
 
                             if (Registers.A <= initialValue)
                             {
-                                Registers.P |= StatusFlags.Carry;
+                                Registers.P |= CPUStatusFlags.Carry;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Carry;
+                                Registers.P &= ~CPUStatusFlags.Carry;
                             }
 
                             initialSign = initialValue & SignBit;
                             if (initialSign != (operand & SignBit) && initialSign != (Registers.A & SignBit))
                             {
-                                Registers.P |= StatusFlags.Overflow;
+                                Registers.P |= CPUStatusFlags.Overflow;
                             }
                             else
                             {
-                                Registers.P &= ~StatusFlags.Overflow;
+                                Registers.P &= ~CPUStatusFlags.Overflow;
                             }
                             break;
                     }
@@ -1067,8 +1067,8 @@
         private void InterruptStatePush()
         {
             PushStackTwoByte(Registers.PC);
-            PushStack((byte)(Registers.P | StatusFlags.Break));
-            Registers.P |= StatusFlags.InterruptDisable;
+            PushStack((byte)(Registers.P | CPUStatusFlags.Break));
+            Registers.P |= CPUStatusFlags.InterruptDisable;
         }
 
         /// <summary>
@@ -1202,20 +1202,20 @@
         {
             if (value == 0)
             {
-                Registers.P |= StatusFlags.Zero;
+                Registers.P |= CPUStatusFlags.Zero;
             }
             else
             {
-                Registers.P &= ~StatusFlags.Zero;
+                Registers.P &= ~CPUStatusFlags.Zero;
             }
 
             if ((value & SignBit) == 0)
             {
-                Registers.P &= ~StatusFlags.Negative;
+                Registers.P &= ~CPUStatusFlags.Negative;
             }
             else
             {
-                Registers.P |= StatusFlags.Negative;
+                Registers.P |= CPUStatusFlags.Negative;
             }
         }
 

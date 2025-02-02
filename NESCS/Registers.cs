@@ -1,7 +1,7 @@
 ﻿namespace NESCS
 {
     [Flags]
-    public enum StatusFlags : byte
+    public enum CPUStatusFlags : byte
     {
         None = 0,
 
@@ -13,6 +13,48 @@
         Always = 0b100000,
         Overflow = 0b1000000,
         Negative = 0b10000000
+    }
+
+    [Flags]
+    public enum PPUCTRLFlags : byte
+    {
+        None = 0,
+
+        SelectSecondNametableX = 0b1,
+        SelectSecondNametableY = 0b10,
+        IncrementMode = 0b100,
+        SpriteTileSelect = 0b1000,
+        BackgroundTileSelect = 0b10000,
+        SpriteHeight = 0b100000,
+        ExtPinDirection = 0b1000000,
+        VerticalBlankNmiEnable = 0b10000000
+    }
+
+    [Flags]
+    public enum PPUMASKFlags : byte
+    {
+        None = 0,
+
+        Greyscale = 0b1,
+        BackgroundLeftColumnEnable = 0b10,
+        SpriteLeftColumnEnable = 0b100,
+        BackgroundEnable = 0b1000,
+        SpriteEnable = 0b10000,
+        ColorEmphasisRed = 0b100000,
+        ColorEmphasisGreen = 0b1000000,
+        ColorEmphasisBlue = 0b10000000,
+
+        RenderingEnable = BackgroundEnable | SpriteEnable
+    }
+
+    [Flags]
+    public enum PPUSTATUSFlags : byte
+    {
+        None = 0,
+
+        SpriteOverflow = 0b100000,
+        SpriteZeroHit = 0b1000000,
+        VerticalBlank = 0b10000000
     }
 
     public record CPURegisters
@@ -40,7 +82,7 @@
         /// <summary>
         /// Status
         /// </summary>
-        public StatusFlags P = StatusFlags.Always;
+        public CPUStatusFlags P = CPUStatusFlags.Always;
     }
 
     public record PPURegisters
@@ -48,15 +90,15 @@
         /// <summary>
         /// Mapped to 0x2000 - Miscellaneous settings
         /// </summary>
-        public byte PPUCTRL;
+        public PPUCTRLFlags PPUCTRL;
         /// <summary>
         /// Mapped to 0x2001 - Rendering settings
         /// </summary>
-        public byte PPUMASK;
+        public PPUMASKFlags PPUMASK;
         /// <summary>
         /// Mapped to 0x2002 - Rendering events
         /// </summary>
-        public byte PPUSTATUS;
+        public PPUSTATUSFlags PPUSTATUS;
         /// <summary>
         /// Mapped to 0x2003 - Sprite RAM address
         /// </summary>
@@ -101,10 +143,16 @@
         {
             get
             {
+                if (mappedAddress == 0x2002)
+                {
+                    // Reading PPUSTATUS resets write latch
+                    W = false;
+                }
+
                 return mappedAddress switch
                 {
                     0x2000 or 0x2001 or 0x2003 or 0x2005 or 0x2006 or 0x4014 => dataBus,  // Write-only registers
-                    0x2002 => PPUSTATUS,
+                    0x2002 => (byte)PPUSTATUS,
                     0x2004 => OAMDATA,
                     0x2007 => PPUDATA,
                     _ => throw new ArgumentException("The given address is not a valid mapped PPU register address.", nameof(mappedAddress))
@@ -117,10 +165,10 @@
                 switch (mappedAddress)
                 {
                     case 0x2000:
-                        PPUCTRL = dataBus;
+                        PPUCTRL = (PPUCTRLFlags)dataBus;
                         break;
                     case 0x2001:
-                        PPUMASK = dataBus;
+                        PPUMASK = (PPUMASKFlags)dataBus;
                         break;
                     case 0x2002:
                         // PPUSTATUS is Read-only
