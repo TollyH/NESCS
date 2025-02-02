@@ -7,7 +7,7 @@
         public const int CyclesPerScanline = 341;
 
         public readonly PPURegisters Registers = new();
-        public readonly Mapper InsertedCartridgeMapper;
+        public readonly NESSystem NesSystem;
 
         public readonly byte[] PaletteRAM = new byte[0x20];
         public readonly byte[] ObjectAttributeMemory = new byte[0xFF];
@@ -19,9 +19,13 @@
         public int Scanline { get; private set; }
         public int Cycle { get; private set; }
 
-        public PPU(Mapper insertedCartridgeMapper)
+        // Stores whether the vertical blanking NMI was enabled on the previous frame.
+        // Used to trigger an NMI if the flag is toggled on midway through the blanking interval.
+        private bool wasNMIEnabledPreviously = false;
+
+        public PPU(NESSystem system)
         {
-            InsertedCartridgeMapper = insertedCartridgeMapper;
+            NesSystem = system;
 
             Reset(true);
         }
@@ -32,13 +36,13 @@
         public byte this[ushort address]
         {
             get => address <= 0x3EFF
-                ? InsertedCartridgeMapper.MappedPPURead(address)
+                ? NesSystem.InsertedCartridgeMapper.MappedPPURead(address)
                 : PaletteRAM[address & 0b11111];
             set
             {
                 if (address <= 0x3EFF)
                 {
-                    InsertedCartridgeMapper.MappedPPUWrite(address, value);
+                    NesSystem.InsertedCartridgeMapper.MappedPPUWrite(address, value);
                 }
                 else
                 {
@@ -107,6 +111,14 @@
 
         private void RunDotLogic()
         {
+            if (!wasNMIEnabledPreviously && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable))
+            {
+                // Turning on vertical blanking interrupts midway through the blanking interval will immediately fire the NMI.
+                NesSystem.CpuCore.NonMaskableInterrupt();
+            }
+
+            wasNMIEnabledPreviously = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable);
+
             if (Cycle == 0)
             {
                 // Idle cycle
@@ -123,8 +135,17 @@
                     break;
                 // Post-render scanline
                 case 240:
+                    // Idle scanline
                     break;
-                // Vertical blanking
+                // Vertical blanking start
+                case 241:
+                    if (Cycle == 1)
+                    {
+                        Registers.PPUSTATUS |= PPUSTATUSFlags.VerticalBlank;
+                        NesSystem.CpuCore.NonMaskableInterrupt();
+                    }
+                    break;
+                // Vertical blanking interval
                 default:
                     break;
             }

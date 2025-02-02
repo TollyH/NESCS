@@ -35,8 +35,8 @@ namespace NESCS
         public NESSystem(Mapper insertedCartridgeMapper)
         {
             InsertedCartridgeMapper = insertedCartridgeMapper;
-            PpuCore = new PPU(InsertedCartridgeMapper);
-            SystemMemory = new Memory(PpuCore.Registers, InsertedCartridgeMapper);
+            PpuCore = new PPU(this);
+            SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
         }
 

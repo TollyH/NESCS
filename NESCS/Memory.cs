@@ -1,10 +1,9 @@
 ﻿namespace NESCS
 {
-    public class Memory(PPURegisters ppuRegisters, Mapper insertedCartridgeMapper)
+    public class Memory(NESSystem system)
     {
         public readonly byte[] InternalRAM = new byte[0x0800];
-        public readonly PPURegisters PpuRegisters = ppuRegisters;
-        public readonly Mapper InsertedCartridgeMapper = insertedCartridgeMapper;
+        public readonly NESSystem NesSystem = system;
 
         public byte this[ushort address]
         {
@@ -13,10 +12,10 @@
                 return address switch
                 {
                     <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
-                    <= 0x3FFF => PpuRegisters[(ushort)(address & 0x2007)],
+                    <= 0x3FFF => NesSystem.PpuCore.Registers[(ushort)(address & 0x2007)],
                     <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
                     <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
-                    <= 0xFFFF => InsertedCartridgeMapper.MappedCPURead((ushort)(address - 0x4020))
+                    <= 0xFFFF => NesSystem.InsertedCartridgeMapper.MappedCPURead((ushort)(address - 0x4020))
                 };
             }
             set
@@ -27,14 +26,14 @@
                         InternalRAM[(ushort)(address & 0x07FF)] = value;
                         break;
                     case <= 0x3FFF:
-                        PpuRegisters[(ushort)(address & 0x0007)] = value;
+                        NesSystem.PpuCore.Registers[(ushort)(address & 0x0007)] = value;
                         break;
                     case <= 0x4017:
                         throw new NotImplementedException();
                     case <= 0x401F:
                         throw new NotImplementedException();
                     case <= 0xFFFF:
-                        InsertedCartridgeMapper.MappedCPUWrite((ushort)(address - 0x4020), value);
+                        NesSystem.InsertedCartridgeMapper.MappedCPUWrite((ushort)(address - 0x4020), value);
                         break;
                 }
             }
