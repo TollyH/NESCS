@@ -95,9 +95,9 @@
             {
                 Cycle = 0;
                 Scanline++;
-                if (Scanline >= ScanlinesPerFrame)
+                if (Scanline >= ScanlinesPerFrame - 1)
                 {
-                    Scanline = 0;
+                    Scanline = -1;
                     return true;
                 }
             }
@@ -107,7 +107,27 @@
 
         private void RunDotLogic()
         {
+            if (Cycle == 0)
+            {
+                // Idle cycle
+                return;
+            }
 
+            switch (Scanline)
+            {
+                // Pre-render scanline
+                case -1:
+                    break;
+                // Visible scanlines
+                case <= 239:
+                    break;
+                // Post-render scanline
+                case 240:
+                    break;
+                // Vertical blanking
+                default:
+                    break;
+            }
         }
     }
 }
