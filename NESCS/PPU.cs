@@ -102,6 +102,7 @@
                 if (Scanline >= ScanlinesPerFrame - 1)
                 {
                     Scanline = -1;
+                    OddFrame = !OddFrame;
                     return true;
                 }
             }
@@ -129,6 +130,11 @@
             {
                 // Pre-render scanline
                 case -1:
+                    if (OddFrame && Cycle == CyclesPerScanline - 2)
+                    {
+                        // Every other frame skips the last cycle of the pre-render scanline
+                        IncrementCycle();
+                    }
                     break;
                 // Visible scanlines
                 case <= 239:
