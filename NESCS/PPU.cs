@@ -95,7 +95,9 @@
         public bool IncrementCycle()
         {
             Cycle++;
-            if (Cycle >= CyclesPerScanline)
+            if (Cycle >= CyclesPerScanline
+                // Every other frame skips the last cycle of the pre-render scanline
+                || (OddFrame && Cycle == CyclesPerScanline - 1))
             {
                 Cycle = 0;
                 Scanline++;
@@ -130,10 +132,9 @@
             {
                 // Pre-render scanline
                 case -1:
-                    if (OddFrame && Cycle == CyclesPerScanline - 2)
+                    if (Cycle == 1)
                     {
-                        // Every other frame skips the last cycle of the pre-render scanline
-                        IncrementCycle();
+                        Registers.PPUSTATUS = 0;
                     }
                     break;
                 // Visible scanlines
