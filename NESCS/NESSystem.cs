@@ -18,13 +18,13 @@ namespace NESCS
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
+        public IMapper InsertedCartridgeMapper { get; set; } = new Mappers.Empty();
+
         public readonly Memory SystemMemory;
 
         public readonly CPU CpuCore;
 
         public readonly PPU PpuCore;
-
-        public readonly Mapper InsertedCartridgeMapper;
 
         public event Action<NESSystem>? FrameComplete;
 
@@ -32,9 +32,8 @@ namespace NESCS
         // where the CPU and PPU don't cleanly align
         private double pendingCpuCycles = 0;
 
-        public NESSystem(Mapper insertedCartridgeMapper)
+        public NESSystem()
         {
-            InsertedCartridgeMapper = insertedCartridgeMapper;
             PpuCore = new PPU(this);
             SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
