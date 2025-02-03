@@ -9,12 +9,8 @@ namespace NESCS
 
     public class NESSystem
     {
-        public static readonly CycleClock NtscClockPreset = new(
-            60,
-            1 / 3d);
-        public static readonly CycleClock PalClockPreset = new(
-            50,
-            1 / 3.2);
+        public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d);
+        public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
@@ -53,21 +49,20 @@ namespace NESCS
 
         public void ProcessFrame()
         {
-            bool frameComplete = PpuCore.ProcessNextDot();
-
-            int cpuCyclesThisDot = (int)pendingCpuCycles;
-            pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
-            pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
-
-            for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
+            // Keep cycling both processors until the PPU signals that the frame is complete
+            while (!PpuCore.ProcessNextDot())
             {
-                CpuCore.ExecuteClockCycle();
+                int cpuCyclesThisDot = (int)pendingCpuCycles;
+                pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
+                pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
+
+                for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
+                {
+                    CpuCore.ExecuteClockCycle();
+                }
             }
 
-            if (frameComplete)
-            {
-                FrameComplete?.Invoke(this);
-            }
+            FrameComplete?.Invoke(this);
         }
     }
 }

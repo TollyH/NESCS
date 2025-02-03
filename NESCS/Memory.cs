@@ -15,7 +15,7 @@
                     <= 0x3FFF => NesSystem.PpuCore.Registers[(ushort)(address & 0x2007)],
                     <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
                     <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
-                    <= 0xFFFF => NesSystem.InsertedCartridgeMapper.MappedCPURead((ushort)(address - 0x4020))
+                    <= 0xFFFF => NesSystem.InsertedCartridgeMapper.MappedCPURead(address)
                 };
             }
             set
@@ -33,7 +33,7 @@
                     case <= 0x401F:
                         throw new NotImplementedException();
                     case <= 0xFFFF:
-                        NesSystem.InsertedCartridgeMapper.MappedCPUWrite((ushort)(address - 0x4020), value);
+                        NesSystem.InsertedCartridgeMapper.MappedCPUWrite(address, value);
                         break;
                 }
             }
