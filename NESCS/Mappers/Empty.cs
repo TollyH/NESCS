@@ -8,14 +8,16 @@
 
         public byte MappedCPURead(ushort address)
         {
-            return (byte)address;
+            // Open bus
+            return (byte)(address >> 8);
         }
 
         public void MappedCPUWrite(ushort address, byte value) { }
 
         public byte MappedPPURead(ushort address)
         {
-            return (byte)address;
+            // Open bus
+            return (byte)(address >> 8);
         }
 
         public void MappedPPUWrite(ushort address, byte value) { }
