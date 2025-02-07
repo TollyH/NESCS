@@ -12,7 +12,7 @@
                 return address switch
                 {
                     <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
-                    <= 0x3FFF => NesSystem.PpuCore.Registers[(ushort)(address & 0x2007)],
+                    <= 0x3FFF => NesSystem.PpuCore.Registers[address],
                     <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
                     <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
                     <= 0xFFFF => NesSystem.InsertedCartridgeMapper.MappedCPURead(address)
@@ -26,7 +26,7 @@
                         InternalRAM[(ushort)(address & 0x07FF)] = value;
                         break;
                     case <= 0x3FFF:
-                        NesSystem.PpuCore.Registers[(ushort)(address & 0x0007)] = value;
+                        NesSystem.PpuCore.Registers[address] = value;
                         break;
                     case <= 0x4017:
                         throw new NotImplementedException();

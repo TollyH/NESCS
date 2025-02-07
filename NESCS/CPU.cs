@@ -28,7 +28,11 @@
         public const ushort ResetVector = 0xFFFC;
         public const ushort InterruptRequestVector = 0xFFFE;
 
+        public const int ResetDelayCycles = 7;
+
         public bool Halted { get; private set; } = false;
+
+        public ulong ExecutedCycles { get; private set; }
 
         public readonly CPURegisters Registers = new();
         public readonly Memory SystemMemory;
@@ -38,7 +42,11 @@
 
         // The number of cycles to wait before executing the decoded instruction
         // - used to emulate instructions taking multiple clock cycles.
-        private int waitingCycles = 0;
+        private int remainingInstructionCycles = 0;
+
+        // The number of cycles to wait before performing ANY operation, including instruction fetch/decode
+        // - used to implement the 7 cycle reset delay.
+        private int remainingDelayCycles = 0;
 
         // Decoded opcode data
         private bool fetchNextInstruction = true;
@@ -105,21 +113,20 @@
         /// </summary>
         public void Reset(bool powerCycle)
         {
+            Registers.PC = SystemMemory.ReadTwoBytes(ResetVector);
+
+            remainingDelayCycles = ResetDelayCycles;
+            fetchNextInstruction = true;
+
             if (powerCycle)
             {
                 Registers.A = 0;
                 Registers.X = 0;
                 Registers.Y = 0;
-                Registers.P = CPUStatusFlags.Always;
-            }
-
-            Registers.P |= CPUStatusFlags.InterruptDisable;
-
-            Registers.PC = SystemMemory.ReadTwoBytes(ResetVector);
-
-            if (powerCycle)
-            {
+                Registers.P |= CPUStatusFlags.InterruptDisable;
                 Registers.S = 0xFD;
+
+                ExecutedCycles = 0;
             }
             else
             {
@@ -134,19 +141,27 @@
         /// </summary>
         public void ExecuteClockCycle()
         {
+            ExecutedCycles++;
+
             if (Halted)
             {
+                return;
+            }
+
+            if (remainingDelayCycles > 0)
+            {
+                remainingDelayCycles--;
                 return;
             }
 
             if (fetchNextInstruction)
             {
                 lockFlags = false;
-                waitingCycles += ReadNextOpcode();
+                remainingInstructionCycles += ReadNextOpcode();
                 fetchNextInstruction = false;
             }
 
-            if (--waitingCycles == 0)
+            if (--remainingInstructionCycles == 0)
             {
                 fetchNextInstruction = true;
 
@@ -487,11 +502,11 @@
                         {
                             ushort newAddress = GetAddressFromOperand(addressingMode);
                             // A branch being taken requires an additional clock cycle
-                            waitingCycles++;
+                            remainingDelayCycles++;
                             if (((Registers.PC + 1) & 0xFF00) != (newAddress & 0xFF00))
                             {
                                 // Branching to a different page requires 2 additional cycles
-                                waitingCycles++;
+                                remainingDelayCycles++;
                             }
 
                             Registers.PC = newAddress;

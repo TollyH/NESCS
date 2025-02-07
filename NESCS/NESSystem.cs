@@ -35,6 +35,15 @@ namespace NESCS
             CpuCore = new CPU(SystemMemory);
         }
 
+        /// <summary>
+        /// Simulate a reset of the system, either via the reset button or via a power cycle.
+        /// </summary>
+        public void Reset(bool powerCycle)
+        {
+            CpuCore.Reset(powerCycle);
+            PpuCore.Reset(powerCycle);
+        }
+
         public void StartClock(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -52,9 +61,10 @@ namespace NESCS
             // Keep cycling both processors until the PPU signals that the frame is complete
             while (!PpuCore.ProcessNextDot())
             {
+                pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
+
                 int cpuCyclesThisDot = (int)pendingCpuCycles;
                 pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
-                pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
 
                 for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
                 {
