@@ -35,7 +35,8 @@
         public ulong ExecutedCycles { get; private set; }
 
         public readonly CPURegisters Registers = new();
-        public readonly Memory SystemMemory;
+
+        private readonly Memory systemMemory;
 
         private bool nmiQueued = false;
         private bool irqQueued = false;
@@ -103,7 +104,7 @@
 
         public CPU(Memory systemMemory)
         {
-            SystemMemory = systemMemory;
+            this.systemMemory = systemMemory;
 
             Reset(true);
         }
@@ -113,7 +114,7 @@
         /// </summary>
         public void Reset(bool powerCycle)
         {
-            Registers.PC = SystemMemory.ReadTwoBytes(ResetVector);
+            Registers.PC = systemMemory.ReadTwoBytes(ResetVector);
 
             remainingDelayCycles = ResetDelayCycles;
             fetchNextInstruction = true;
@@ -214,7 +215,7 @@
         /// </returns>
         private int ReadNextOpcode()
         {
-            opcode = SystemMemory[Registers.PC++];
+            opcode = systemMemory[Registers.PC++];
 
             instructionGroup = (byte)(opcode & 0b11);
             addressingModeCode = (byte)((opcode >> 2) & 0b111);
@@ -1076,7 +1077,7 @@
         {
             InterruptStatePush();
 
-            Registers.PC = SystemMemory.ReadTwoBytes(vector);
+            Registers.PC = systemMemory.ReadTwoBytes(vector);
         }
 
         private void InterruptStatePush()
@@ -1093,9 +1094,9 @@
         {
             return mode switch
             {
-                AddressingMode.AbsoluteXIndexed => SystemMemory[Registers.PC] + Registers.X >= 0x0100,
-                AddressingMode.AbsoluteYIndexed => SystemMemory[Registers.PC] + Registers.Y >= 0x0100,
-                AddressingMode.IndirectIndexed => SystemMemory[SystemMemory[Registers.PC]] + Registers.Y >= 0x0100,
+                AddressingMode.AbsoluteXIndexed => systemMemory[Registers.PC] + Registers.X >= 0x0100,
+                AddressingMode.AbsoluteYIndexed => systemMemory[Registers.PC] + Registers.Y >= 0x0100,
+                AddressingMode.IndirectIndexed => systemMemory[systemMemory[Registers.PC]] + Registers.Y >= 0x0100,
                 _ => false
             };
         }
@@ -1107,16 +1108,16 @@
         {
             return mode switch
             {
-                AddressingMode.ZeroPage => SystemMemory[Registers.PC],
-                AddressingMode.ZeroPageXIndexed => (byte)(SystemMemory[Registers.PC] + Registers.X),
-                AddressingMode.ZeroPageYIndexed => (byte)(SystemMemory[Registers.PC] + Registers.Y),
-                AddressingMode.Relative => (ushort)(Registers.PC + (sbyte)SystemMemory[Registers.PC] + 1),
-                AddressingMode.Absolute => SystemMemory.ReadTwoBytes(Registers.PC),
-                AddressingMode.AbsoluteXIndexed => (ushort)(SystemMemory.ReadTwoBytes(Registers.PC) + Registers.X),
-                AddressingMode.AbsoluteYIndexed => (ushort)(SystemMemory.ReadTwoBytes(Registers.PC) + Registers.Y),
-                AddressingMode.Indirect => SystemMemory.ReadTwoBytesIndirectBug(SystemMemory.ReadTwoBytes(Registers.PC)),
-                AddressingMode.IndexedIndirect => SystemMemory.ReadTwoBytesIndirectBug((byte)(SystemMemory[Registers.PC] + Registers.X)),
-                AddressingMode.IndirectIndexed => (ushort)(SystemMemory.ReadTwoBytesIndirectBug(SystemMemory[Registers.PC]) + Registers.Y),
+                AddressingMode.ZeroPage => systemMemory[Registers.PC],
+                AddressingMode.ZeroPageXIndexed => (byte)(systemMemory[Registers.PC] + Registers.X),
+                AddressingMode.ZeroPageYIndexed => (byte)(systemMemory[Registers.PC] + Registers.Y),
+                AddressingMode.Relative => (ushort)(Registers.PC + (sbyte)systemMemory[Registers.PC] + 1),
+                AddressingMode.Absolute => systemMemory.ReadTwoBytes(Registers.PC),
+                AddressingMode.AbsoluteXIndexed => (ushort)(systemMemory.ReadTwoBytes(Registers.PC) + Registers.X),
+                AddressingMode.AbsoluteYIndexed => (ushort)(systemMemory.ReadTwoBytes(Registers.PC) + Registers.Y),
+                AddressingMode.Indirect => systemMemory.ReadTwoBytesIndirectBug(systemMemory.ReadTwoBytes(Registers.PC)),
+                AddressingMode.IndexedIndirect => systemMemory.ReadTwoBytesIndirectBug((byte)(systemMemory[Registers.PC] + Registers.X)),
+                AddressingMode.IndirectIndexed => (ushort)(systemMemory.ReadTwoBytesIndirectBug(systemMemory[Registers.PC]) + Registers.Y),
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not operate on memory.", nameof(mode))
             };
         }
@@ -1142,7 +1143,7 @@
 
             return mode switch
             {
-                AddressingMode.Immediate => SystemMemory[Registers.PC],
+                AddressingMode.Immediate => systemMemory[Registers.PC],
                 AddressingMode.Accumulator => Registers.A,
                 AddressingMode.ZeroPage
                     or AddressingMode.ZeroPageXIndexed
@@ -1154,7 +1155,7 @@
                     or AddressingMode.Indirect
                     or AddressingMode.IndexedIndirect
                     or AddressingMode.IndirectIndexed
-                    => SystemMemory[GetAddressFromOperand(mode)],
+                    => systemMemory[GetAddressFromOperand(mode)],
                 _ => throw new ArgumentException($"The given AddressingMode ({mode}) does not have an operand.", nameof(mode))
             };
         }
@@ -1179,7 +1180,7 @@
                 case AddressingMode.Indirect:
                 case AddressingMode.IndexedIndirect:
                 case AddressingMode.IndirectIndexed:
-                    SystemMemory[GetAddressFromOperand(mode)] = value;
+                    systemMemory[GetAddressFromOperand(mode)] = value;
                     break;
                 case AddressingMode.Immediate:
                 case AddressingMode.Implicit:
@@ -1193,24 +1194,24 @@
 
         private byte PopStack()
         {
-            return SystemMemory[(ushort)(0x0100 + ++Registers.S)];
+            return systemMemory[(ushort)(0x0100 + ++Registers.S)];
         }
 
         private void PushStack(byte value)
         {
-            SystemMemory[(ushort)(0x0100 + Registers.S--)] = value;
+            systemMemory[(ushort)(0x0100 + Registers.S--)] = value;
         }
 
         private ushort PopStackTwoByte()
         {
-            return (ushort)((SystemMemory[(ushort)(0x0100 + ++Registers.S)])
-                | (SystemMemory[(ushort)(0x0100 + ++Registers.S)] << 8));
+            return (ushort)((systemMemory[(ushort)(0x0100 + ++Registers.S)])
+                | (systemMemory[(ushort)(0x0100 + ++Registers.S)] << 8));
         }
 
         private void PushStackTwoByte(ushort value)
         {
-            SystemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value >> 8);
-            SystemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value & 0xFF);
+            systemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value >> 8);
+            systemMemory[(ushort)(0x0100 + Registers.S--)] = (byte)(value & 0xFF);
         }
 
         private void SetZNFlagsFromValue(byte value)

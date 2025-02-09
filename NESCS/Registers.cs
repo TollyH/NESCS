@@ -20,8 +20,6 @@
     {
         None = 0,
 
-        SelectSecondNametableX = 0b1,
-        SelectSecondNametableY = 0b10,
         IncrementMode = 0b100,
         SpriteTileSelect = 0b1000,
         BackgroundTileSelect = 0b10000,
@@ -85,8 +83,17 @@
         public CPUStatusFlags P = CPUStatusFlags.Always;
     }
 
-    public record PPURegisters
+    public record PPURegisters(PPU PpuCore)
     {
+        public const ushort MappedPPUCTRLAddress = 0x2000;
+        public const ushort MappedPPUMASKAddress = 0x2001;
+        public const ushort MappedPPUSTATUSAddress = 0x2002;
+        public const ushort MappedOAMADDRAddress = 0x2003;
+        public const ushort MappedOAMDATAAddress = 0x2004;
+        public const ushort MappedPPUSCROLLAddress = 0x2005;
+        public const ushort MappedPPUADDRAddress = 0x2006;
+        public const ushort MappedPPUDATAAddress = 0x2007;
+
         /// <summary>
         /// Mapped to 0x2000 - Miscellaneous settings
         /// </summary>
@@ -103,31 +110,15 @@
         /// Mapped to 0x2003 - Sprite RAM address
         /// </summary>
         public byte OAMADDR;
-        /// <summary>
-        /// Mapped to 0x2004 - Sprite RAM data
-        /// </summary>
-        public byte OAMDATA;
-        /// <summary>
-        /// X and Y scroll - Mapped to 0x2005, written one byte at a time
-        /// </summary>
-        public ushort PPUSCROLL;
-        /// <summary>
-        /// VRAM address - Mapped to 0x2006, written one byte at a time
-        /// </summary>
-        public ushort PPUADDR;
-        /// <summary>
-        /// VRAM data - Mapped to 0x2007
-        /// </summary>
-        public byte PPUDATA;
 
         /// <summary>
         /// Internal - Current VRAM address / Scroll position
         /// </summary>
-        public short V;
+        public ushort V;
         /// <summary>
         /// Internal - Temporary VRAM address / Scroll position
         /// </summary>
-        public short T;
+        public ushort T;
         /// <summary>
         /// Internal - Fine X scroll
         /// </summary>
@@ -137,26 +128,83 @@
         /// </summary>
         public bool W;
 
+        public byte CoarseXScroll
+        {
+            get => (byte)(V & 0b11111);
+            set => V = (ushort)((V & 0b111111111100000) | (value & 0b11111));
+        }
+
+        public byte CoarseYScroll
+        {
+            get => (byte)((V & 0b1111100000) >> 5);
+            set => V = (ushort)((V & 0b111110000011111) | ((value & 0b11111) << 5));
+        }
+
+        public byte FineYScroll
+        {
+            get => (byte)((V & 0b111000000000000) >> 12);
+            set => V = (ushort)((V & 0b000111111111111) | ((value & 0b111) << 12));
+        }
+
+        public bool UseSecondHorizontalNametable
+        {
+            get => (V & 0b000010000000000) != 0;
+            set
+            {
+                if (value)
+                {
+                    V |= 0b000010000000000;
+                }
+                else
+                {
+                    V &= unchecked((ushort)~0b000010000000000);
+                }
+            }
+        }
+
+        public bool UseSecondVerticalNametable
+        {
+            get => (V & 0b000100000000000) != 0;
+            set
+            {
+                if (value)
+                {
+                    V |= 0b000100000000000;
+                }
+                else
+                {
+                    V &= unchecked((ushort)~0b000100000000000);
+                }
+            }
+        }
+
+        // Used to implement 1-byte delay of PPUDATA reads
+        internal byte readBuffer = 0;
+
         private byte dataBus = 0;
 
         public byte this[ushort mappedAddress]
         {
             get
             {
-                if (mappedAddress == 0x2002)
+                switch (mappedAddress)
                 {
-                    // Reading PPUSTATUS resets write latch
-                    W = false;
+                    case MappedPPUCTRLAddress or MappedPPUMASKAddress or MappedOAMADDRAddress or MappedPPUSCROLLAddress or MappedPPUADDRAddress:
+                        return dataBus;  // Write-only registers
+                    case 0x2002:
+                        // Reading PPUSTATUS resets write latch
+                        W = false;
+                        return (byte)PPUSTATUS;
+                    case 0x2004:
+                        return PpuCore.ObjectAttributeMemory[OAMADDR];
+                    case 0x2007:
+                        byte returnValue = readBuffer;
+                        readBuffer = PpuCore[(ushort)(V & 0b11111111111111)];
+                        IncrementPPUADDR();
+                        return returnValue;
+                    default:
+                        throw new ArgumentException("The given address is not a valid mapped PPU register address.", nameof(mappedAddress));
                 }
-
-                return mappedAddress switch
-                {
-                    0x2000 or 0x2001 or 0x2003 or 0x2005 or 0x2006 or 0x4014 => dataBus,  // Write-only registers
-                    0x2002 => (byte)PPUSTATUS,
-                    0x2004 => OAMDATA,
-                    0x2007 => PPUDATA,
-                    _ => throw new ArgumentException("The given address is not a valid mapped PPU register address.", nameof(mappedAddress))
-                };
             }
             set
             {
@@ -164,29 +212,57 @@
 
                 switch (mappedAddress)
                 {
-                    case 0x2000:
-                        PPUCTRL = (PPUCTRLFlags)dataBus;
+                    case MappedPPUCTRLAddress:
+                        PPUCTRL = (PPUCTRLFlags)(dataBus & 0b11111100);
+                        // Nametable selection bits are stored separately
+                        T = (ushort)((T & 0b111001111111111) | ((dataBus & 0b11) << 10));
                         break;
-                    case 0x2001:
+                    case MappedPPUMASKAddress:
                         PPUMASK = (PPUMASKFlags)dataBus;
                         break;
-                    case 0x2002:
+                    case MappedPPUSTATUSAddress:
                         // PPUSTATUS is Read-only
                         break;
-                    case 0x2003:
+                    case MappedOAMADDRAddress:
                         OAMADDR = dataBus;
                         break;
-                    case 0x2004:
-                        OAMDATA = dataBus;
+                    case MappedOAMDATAAddress:
+                        PpuCore.ObjectAttributeMemory[OAMADDR] = dataBus;
+                        OAMADDR++;
                         break;
-                    case 0x2005:
-                        Set16BitsWith8BitsLatched(ref PPUSCROLL, dataBus);
+                    case MappedPPUSCROLLAddress:
+                        if (!W)
+                        {
+                            // First write
+                            T = (ushort)((T & 0b111111111100000) | (dataBus >> 3));
+                            X = (byte)(dataBus & 0b111);
+                            W = true;
+                        }
+                        else
+                        {
+                            // Second write
+                            T = (ushort)((T & 0b000110000011111) | ((dataBus & 0b111) << 12) | ((dataBus & 0b11111000) << 2));
+                            W = false;
+                        }
                         break;
-                    case 0x2006:
-                        Set16BitsWith8BitsLatched(ref PPUADDR, dataBus);
+                    case MappedPPUADDRAddress:
+                        if (!W)
+                        {
+                            // First write
+                            T = (ushort)((T & 0b000000011111111) | ((dataBus & 0b111111) << 8));
+                            W = true;
+                        }
+                        else
+                        {
+                            // Second write
+                            T = (ushort)((T & 0b111111100000000) | dataBus);
+                            V = T;
+                            W = false;
+                        }
                         break;
-                    case 0x2007:
-                        PPUDATA = dataBus;
+                    case MappedPPUDATAAddress:
+                        PpuCore[V] = dataBus;
+                        IncrementPPUADDR();
                         break;
                     default:
                         throw new ArgumentException("The given address is not a valid mapped PPU register address.", nameof(mappedAddress));
@@ -194,22 +270,44 @@
             }
         }
 
-        /// <summary>
-        /// Set either the lower or upper byte of a 16-bit value based on the current value of the <see cref="W"/> register.
-        /// Inverts the register after writing.
-        /// </summary>
-        public void Set16BitsWith8BitsLatched(ref ushort target, byte value)
+        public void CoarseXScrollIncrement()
         {
-            if (W)
+            CoarseXScroll++;
+            if (CoarseXScroll == 0)
             {
-                target = (ushort)((target & 0xFF00) | value);
+                UseSecondHorizontalNametable = !UseSecondHorizontalNametable;
+            }
+        }
+
+        public void YScrollIncrement()
+        {
+            FineYScroll++;
+            if (FineYScroll == 0)
+            {
+                CoarseYScroll++;
+                if (CoarseYScroll >= 30)
+                {
+                    CoarseYScroll = 0;
+                    if (CoarseYScroll == 30)
+                    {
+                        UseSecondVerticalNametable = !UseSecondVerticalNametable;
+                    }
+                }
+            }
+        }
+
+        private void IncrementPPUADDR()
+        {
+            if (PpuCore.IsCurrentlyRendering)
+            {
+                CoarseXScrollIncrement();
+                YScrollIncrement();
             }
             else
             {
-                target = (ushort)((value << 8) | (target & 0xFF));
+                // IncrementMode being set means writes are ordered vertically, being unset means writes are ordered horizontally
+                V += (ushort)(PPUCTRL.HasFlag(PPUCTRLFlags.IncrementMode) ? 32 : 1);
             }
-
-            W = !W;
         }
     }
 }

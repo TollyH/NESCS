@@ -4,10 +4,12 @@
     {
         public const int NtscScanlinesPerFrame = 262;
         public const int PalScanlinesPerFrame = 312;
+        public const int VisibleScanlinesPerFrame = 240;
         public const int CyclesPerScanline = 341;
 
-        public readonly PPURegisters Registers = new();
-        public readonly NESSystem NesSystem;
+        public readonly PPURegisters Registers;
+
+        private readonly NESSystem nesSystem;
 
         public readonly byte[] PaletteRAM = new byte[0x20];
         public readonly byte[] ObjectAttributeMemory = new byte[0xFF];
@@ -19,13 +21,20 @@
         public int Scanline { get; private set; }
         public int Cycle { get; private set; }
 
+        public bool IsRenderingEnabled => Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable)
+            || Registers.PPUMASK.HasFlag(PPUMASKFlags.SpriteEnable);
+
+        public bool IsCurrentlyRendering => Scanline < VisibleScanlinesPerFrame && IsRenderingEnabled;
+
         // Stores whether the vertical blanking NMI was enabled on the previous frame.
         // Used to trigger an NMI if the flag is toggled on midway through the blanking interval.
         private bool wasNMIEnabledPreviously = false;
 
         public PPU(NESSystem system)
         {
-            NesSystem = system;
+            nesSystem = system;
+
+            Registers = new PPURegisters(this);
 
             Reset(true);
         }
@@ -36,13 +45,13 @@
         public byte this[ushort address]
         {
             get => address <= 0x3EFF
-                ? NesSystem.InsertedCartridgeMapper.MappedPPURead(address)
+                ? nesSystem.InsertedCartridgeMapper.MappedPPURead(address)
                 : PaletteRAM[address & 0b11111];
             set
             {
                 if (address <= 0x3EFF)
                 {
-                    NesSystem.InsertedCartridgeMapper.MappedPPUWrite(address, value);
+                    nesSystem.InsertedCartridgeMapper.MappedPPUWrite(address, value);
                 }
                 else
                 {
@@ -60,15 +69,17 @@
             {
                 Registers.PPUSTATUS = 0;
                 Registers.OAMADDR = 0;
-                Registers.PPUADDR = 0;
+                Registers.V = 0;
             }
 
             Registers.PPUCTRL = 0;
             Registers.PPUMASK = 0;
-            Registers.PPUSCROLL = 0;
-            Registers.PPUDATA = 0;
 
+            Registers.T = 0;
+            Registers.X = 0;
             Registers.W = false;
+
+            Registers.readBuffer = 0;
 
             OddFrame = false;
 
@@ -114,10 +125,11 @@
 
         private void RunDotLogic()
         {
-            if (!wasNMIEnabledPreviously && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable))
+            if (!wasNMIEnabledPreviously && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable)
+                && Scanline > VisibleScanlinesPerFrame)
             {
                 // Turning on vertical blanking interrupts midway through the blanking interval will immediately fire the NMI.
-                NesSystem.CpuCore.NonMaskableInterrupt();
+                nesSystem.CpuCore.NonMaskableInterrupt();
             }
 
             wasNMIEnabledPreviously = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable);
@@ -138,18 +150,18 @@
                     }
                     break;
                 // Visible scanlines
-                case <= 239:
+                case <= VisibleScanlinesPerFrame - 1:
                     break;
                 // Post-render scanline
-                case 240:
+                case VisibleScanlinesPerFrame:
                     // Idle scanline
                     break;
                 // Vertical blanking start
-                case 241:
+                case VisibleScanlinesPerFrame + 1:
                     if (Cycle == 1)
                     {
                         Registers.PPUSTATUS |= PPUSTATUSFlags.VerticalBlank;
-                        NesSystem.CpuCore.NonMaskableInterrupt();
+                        nesSystem.CpuCore.NonMaskableInterrupt();
                     }
                     break;
                 // Vertical blanking interval

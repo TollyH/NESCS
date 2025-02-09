@@ -1,9 +1,8 @@
 ﻿namespace NESCS
 {
-    public class Memory(NESSystem system)
+    public class Memory(NESSystem nesSystem)
     {
         public readonly byte[] InternalRAM = new byte[0x0800];
-        public readonly NESSystem NesSystem = system;
 
         public byte this[ushort address]
         {
@@ -12,10 +11,10 @@
                 return address switch
                 {
                     <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
-                    <= 0x3FFF => NesSystem.PpuCore.Registers[address],
+                    <= 0x3FFF => nesSystem.PpuCore.Registers[address],
                     <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
                     <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
-                    <= 0xFFFF => NesSystem.InsertedCartridgeMapper.MappedCPURead(address)
+                    <= 0xFFFF => nesSystem.InsertedCartridgeMapper.MappedCPURead(address)
                 };
             }
             set
@@ -26,14 +25,14 @@
                         InternalRAM[(ushort)(address & 0x07FF)] = value;
                         break;
                     case <= 0x3FFF:
-                        NesSystem.PpuCore.Registers[address] = value;
+                        nesSystem.PpuCore.Registers[address] = value;
                         break;
                     case <= 0x4017:
                         throw new NotImplementedException();
                     case <= 0x401F:
                         throw new NotImplementedException();
                     case <= 0xFFFF:
-                        NesSystem.InsertedCartridgeMapper.MappedCPUWrite(address, value);
+                        nesSystem.InsertedCartridgeMapper.MappedCPUWrite(address, value);
                         break;
                 }
             }
