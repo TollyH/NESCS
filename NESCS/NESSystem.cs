@@ -30,7 +30,7 @@ namespace NESCS
 
         public NESSystem()
         {
-            PpuCore = new PPU(this);
+            PpuCore = new PPU(this, PPU.NtscScanlinesPerFrame);
             SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
         }
