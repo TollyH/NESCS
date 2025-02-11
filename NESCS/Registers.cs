@@ -111,22 +111,40 @@
         /// </summary>
         public byte OAMADDR;
 
+        private ushort _v;
         /// <summary>
-        /// Internal - Current VRAM address / Scroll position
+        /// Internal - Current VRAM address / Scroll position (15 bits)
         /// </summary>
-        public ushort V;
+        public ushort V
+        {
+            get => (byte)(_v & 0b111111111111111);
+            set => _v = (byte)(value & 0b111111111111111);
+        }
+
+        private ushort _t;
         /// <summary>
-        /// Internal - Temporary VRAM address / Scroll position
+        /// Internal - Temporary VRAM address / Scroll position (15 bits)
         /// </summary>
-        public ushort T;
+        public ushort T
+        {
+            get => (byte)(_t & 0b111111111111111);
+            set => _t = (byte)(value & 0b111111111111111);
+        }
+
+        private byte _x;
         /// <summary>
-        /// Internal - Fine X scroll
+        /// Internal - Fine X scroll (3 bits)
         /// </summary>
-        public byte X;
+        public byte X
+        {
+            get => (byte)(_x & 0b111);
+            set => _x = (byte)(value & 0b111);
+        }
+
         /// <summary>
         /// Internal - Write latch (first or second write)
         /// </summary>
-        public bool W;
+        public bool W { get; set; }
 
         public byte CoarseXScroll
         {
@@ -235,7 +253,7 @@
                         {
                             // First write
                             T = (ushort)((T & 0b111111111100000) | (dataBus >> 3));
-                            X = (byte)(dataBus & 0b111);
+                            X = dataBus;
                             W = true;
                         }
                         else
