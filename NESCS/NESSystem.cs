@@ -22,6 +22,8 @@ namespace NESCS
 
         public readonly PPU PpuCore;
 
+        public readonly APU ApuCore;
+
         public event Action<NESSystem>? FrameComplete;
 
         // This is floating point to account for clocks (like PAL)
@@ -33,6 +35,7 @@ namespace NESCS
             PpuCore = new PPU(this, PPU.NtscScanlinesPerFrame);
             SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
+            ApuCore = new APU(CpuCore);
         }
 
         /// <summary>

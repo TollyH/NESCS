@@ -60,6 +60,16 @@
         // Used to prevent some UNOFFICIAL NOPs from affecting status flags
         private bool lockFlags = false;
 
+        // OAM DMA can either read or write on a cycle, not both
+        private bool oamDmaReadCycle = false;
+
+        private bool oamDmaInProgress = false;
+        private ushort oamDmaPage = 0;
+        private byte oamDmaOffset = 0;
+        private byte oamDmaLastReadValue = 0;
+        // If OAM DMA starts on a write cycle, it must wait ("align") for the next read cycle
+        private bool oamDmaDelay = false;
+
         private readonly int[] baseCycleCounts = new int[256]
         {
          // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
@@ -149,6 +159,34 @@
                 return;
             }
 
+            oamDmaReadCycle = !oamDmaReadCycle;
+
+            if (oamDmaInProgress)
+            {
+                if (oamDmaDelay)
+                {
+                    oamDmaDelay = false;
+                    return;
+                }
+
+                if (oamDmaReadCycle)
+                {
+                    oamDmaLastReadValue = systemMemory[(ushort)(oamDmaPage | oamDmaOffset)];
+                }
+                else
+                {
+                    systemMemory[PPURegisters.MappedOAMDATAAddress] = oamDmaLastReadValue;
+
+                    systemMemory[PPURegisters.MappedOAMADDRAddress]++;
+                    if (++oamDmaOffset == 0)
+                    {
+                        // Overflowed - DMA is complete
+                        oamDmaInProgress = false;
+                    }
+                }
+                return;
+            }
+
             if (remainingDelayCycles > 0)
             {
                 remainingDelayCycles--;
@@ -204,6 +242,22 @@
         public void InterruptRequest()
         {
             irqQueued = true;
+        }
+
+        /// <summary>
+        /// Starts a copy of 256 bytes (an entire memory page) to the PPU's Object Attribute Memory.
+        /// The processor is halted while this happens.
+        /// </summary>
+        public void StartOAMDMACopy(byte page)
+        {
+            oamDmaPage = (ushort)(page << 8);
+            oamDmaOffset = 0;
+            oamDmaInProgress = true;
+
+            // Read/write cycle will switch when next cycle is executed, so delay will be required if currently on a read cycle
+            oamDmaDelay = oamDmaReadCycle;
+
+            systemMemory[PPURegisters.MappedOAMADDRAddress] = 0;
         }
 
         /// <summary>

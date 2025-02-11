@@ -1,21 +1,6 @@
 ﻿namespace NESCS
 {
     [Flags]
-    public enum CPUStatusFlags : byte
-    {
-        None = 0,
-
-        Carry = 0b1,
-        Zero = 0b10,
-        InterruptDisable = 0b100,
-        Decimal = 0b1000,
-        Break = 0b10000,
-        Always = 0b100000,
-        Overflow = 0b1000000,
-        Negative = 0b10000000
-    }
-
-    [Flags]
     public enum PPUCTRLFlags : byte
     {
         None = 0,
@@ -55,35 +40,7 @@
         VerticalBlank = 0b10000000
     }
 
-    public record CPURegisters
-    {
-        /// <summary>
-        /// Accumulator
-        /// </summary>
-        public byte A;
-        /// <summary>
-        /// X Index
-        /// </summary>
-        public byte X;
-        /// <summary>
-        /// Y Index
-        /// </summary>
-        public byte Y;
-        /// <summary>
-        /// Program Counter
-        /// </summary>
-        public ushort PC;
-        /// <summary>
-        /// Stack Pointer
-        /// </summary>
-        public byte S;
-        /// <summary>
-        /// Status
-        /// </summary>
-        public CPUStatusFlags P = CPUStatusFlags.Always;
-    }
-
-    public record PPURegisters(PPU PpuCore)
+    public class PPURegisters(PPU ppuCore)
     {
         public const ushort MappedPPUCTRLAddress = 0x2000;
         public const ushort MappedPPUMASKAddress = 0x2001;
@@ -214,10 +171,10 @@
                         W = false;
                         return (byte)PPUSTATUS;
                     case 0x2004:
-                        return PpuCore.ObjectAttributeMemory[OAMADDR];
+                        return ppuCore.ObjectAttributeMemory[OAMADDR];
                     case 0x2007:
                         byte returnValue = readBuffer;
-                        readBuffer = PpuCore[(ushort)(V & 0b11111111111111)];
+                        readBuffer = ppuCore[(ushort)(V & 0b11111111111111)];
                         IncrementPPUADDR();
                         return returnValue;
                     default:
@@ -245,7 +202,7 @@
                         OAMADDR = dataBus;
                         break;
                     case MappedOAMDATAAddress:
-                        PpuCore.ObjectAttributeMemory[OAMADDR] = dataBus;
+                        ppuCore.ObjectAttributeMemory[OAMADDR] = dataBus;
                         OAMADDR++;
                         break;
                     case MappedPPUSCROLLAddress:
@@ -279,7 +236,7 @@
                         }
                         break;
                     case MappedPPUDATAAddress:
-                        PpuCore[V] = dataBus;
+                        ppuCore[V] = dataBus;
                         IncrementPPUADDR();
                         break;
                     default:
@@ -316,7 +273,7 @@
 
         private void IncrementPPUADDR()
         {
-            if (PpuCore.IsCurrentlyRendering)
+            if (ppuCore.IsCurrentlyRendering)
             {
                 CoarseXScrollIncrement();
                 YScrollIncrement();

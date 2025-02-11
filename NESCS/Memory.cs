@@ -12,8 +12,7 @@
                 {
                     <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
                     <= 0x3FFF => nesSystem.PpuCore.Registers[address],
-                    <= 0x4017 => throw new NotImplementedException(), // ApuIoRegisters, (ushort)(address - 0x4000),
-                    <= 0x401F => throw new NotImplementedException(), // TestModeRegisters, (ushort)(address - 0x4018),
+                    <= 0x4017 => nesSystem.ApuCore.Registers[address],
                     <= 0xFFFF => nesSystem.InsertedCartridgeMapper.MappedCPURead(address)
                 };
             }
@@ -28,9 +27,8 @@
                         nesSystem.PpuCore.Registers[address] = value;
                         break;
                     case <= 0x4017:
-                        throw new NotImplementedException();
-                    case <= 0x401F:
-                        throw new NotImplementedException();
+                        nesSystem.ApuCore.Registers[address] = value;
+                        break;
                     case <= 0xFFFF:
                         nesSystem.InsertedCartridgeMapper.MappedCPUWrite(address, value);
                         break;
