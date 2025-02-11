@@ -6,13 +6,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Title>NESCS</Title>
-    <Description>A NES emulator made with C#, MonoGame, and ImGui.NET</Description>
+    <Description>A NES emulator library made with C#</Description>
     <Copyright>Copyright © 2025 Ptolemy Hill</Copyright>
-    <PackageProjectUrl>https://github.com/TollyH/AssEmbly</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/TollyH/NESCS</PackageProjectUrl>
     <Company>Tolly Hill</Company>
     <Authors>Tolly Hill</Authors>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/TollyH/AssEmbly</RepositoryUrl>
+    <RepositoryUrl>https://github.com/TollyH/NESCS</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

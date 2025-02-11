@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Title>NESCS.GUI</Title>
+    <Description>A hobby NES emulator made with C# and WPF</Description>
+    <Copyright>Copyright © 2025 Ptolemy Hill</Copyright>
+    <PackageProjectUrl>https://github.com/TollyH/NESCS</PackageProjectUrl>
+    <Company>Tolly Hill</Company>
+    <Authors>Tolly Hill</Authors>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/TollyH/NESCS</RepositoryUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NESCS\NESCS.csproj" />
+  </ItemGroup>
+
+</Project>

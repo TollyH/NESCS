@@ -1,7 +1,14 @@
-﻿namespace NESCS
+﻿using System.Runtime.InteropServices;
+
+namespace NESCS
 {
-    public readonly record struct Color(byte R, byte G, byte B)
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly struct Color(byte r, byte g, byte b)
     {
+        public readonly byte R = r;
+        public readonly byte G = g;
+        public readonly byte B = b;
+
         public Color(uint packedValue) : this((byte)(packedValue >> 16), (byte)(packedValue >> 8), (byte)packedValue) { }
     }
 }

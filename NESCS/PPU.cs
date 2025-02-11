@@ -9,6 +9,7 @@
         public const int PalScanlinesPerFrame = 312;
         public const int VisibleScanlinesPerFrame = 240;
         public const int CyclesPerScanline = 341;
+        public const int VisibleCyclesPerFrame = SpriteFetchStartCycle - 1;
 
         public const int SpriteFetchStartCycle = 257;
         public const int NextScanlineTileStartCycle = 321;
@@ -94,7 +95,7 @@
             Registers = new PPURegisters(this);
 
             ScanlinesPerFrame = scanlinesPerFrame;
-            OutputPixels = new Color[VisibleScanlinesPerFrame, SpriteFetchStartCycle - 1];
+            OutputPixels = new Color[VisibleScanlinesPerFrame, VisibleCyclesPerFrame];
 
             Reset(true);
         }
@@ -217,7 +218,7 @@
             if (!IsRenderingEnabled)
             {
                 if (Scanline is >= 0 and < VisibleScanlinesPerFrame
-                    && Cycle is >= 1 and <= SpriteFetchStartCycle)
+                    && Cycle is >= 1 and <= VisibleCyclesPerFrame)
                 {
                     // The colour displayed when rendering is disabled is usually the backdrop colour,
                     // unless V is currently in palette RAM in which case that colour is used
@@ -321,7 +322,7 @@
                     break;
             }
 
-            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle < SpriteFetchStartCycle)
+            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle <= VisibleCyclesPerFrame)
             {
                 RenderDot();
             }

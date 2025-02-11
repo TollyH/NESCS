@@ -5,6 +5,8 @@ VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NESCS", "NESCS\NESCS.csproj", "{E33273DA-5445-417E-9379-A16B5E1D3B37}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NESCS.GUI", "NESCS.GUI\NESCS.GUI.csproj", "{2720F07D-BD05-4DD7-B4AD-252B594670E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E33273DA-5445-417E-9379-A16B5E1D3B37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2720F07D-BD05-4DD7-B4AD-252B594670E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2720F07D-BD05-4DD7-B4AD-252B594670E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2720F07D-BD05-4DD7-B4AD-252B594670E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2720F07D-BD05-4DD7-B4AD-252B594670E8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
