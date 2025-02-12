@@ -126,8 +126,16 @@
         {
             Registers.PC = systemMemory.ReadTwoBytes(ResetVector);
 
+            Halted = false;
+
             remainingDelayCycles = ResetDelayCycles;
+            remainingInstructionCycles = 0;
             fetchNextInstruction = true;
+            lockFlags = false;
+            oamDmaInProgress = false;
+
+            nmiQueued = false;
+            irqQueued = false;
 
             if (powerCycle)
             {

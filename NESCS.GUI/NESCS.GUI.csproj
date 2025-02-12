@@ -15,10 +15,19 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/TollyH/NESCS</RepositoryUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\**\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\NESCS\NESCS.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\**\*.png" />
   </ItemGroup>
 
 </Project>

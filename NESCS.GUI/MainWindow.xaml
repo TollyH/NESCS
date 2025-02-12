@@ -4,9 +4,74 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NESCS.GUI"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         mc:Ignorable="d"
-        Title="NESCS" UseLayoutRounding="True" SizeToContent="WidthAndHeight">
+        Title="NESCS" UseLayoutRounding="True" SizeToContent="WidthAndHeight" ResizeMode="CanMinimize" KeyDown="Window_KeyDown" Closed="Window_Closed">
     <Grid>
-        <Image x:Name="nesDisplay" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Menu Grid.Row="0" Height="20">
+            <MenuItem Header="_System">
+                <MenuItem Header="_Load ROM..." InputGestureText="Ctrl+O" Click="LoadItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/cassette.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Load ROM (_No Reset)..." InputGestureText="Ctrl+Shift+O" Click="LoadNoResetItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/cassette--exclamation.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Start/_Resume Emulation" InputGestureText="Ctrl+P" Click="StartItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/control.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Pause Emulation" InputGestureText="Ctrl+Shift+P" Click="StopItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/control-pause.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Soft Reset (Reset Button)" InputGestureText="Ctrl+R" Click="SoftResetItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/arrow-circle-double.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Hard Reset (Power Cycle)" InputGestureText="Ctrl+Shift+R" Click="HardResetItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/control-power.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem x:Name="scaleMenuItem" Header="_Scale">
+                    <MenuItem Header="_1x" IsCheckable="True" IsChecked="True" Click="ScaleItem_Click">
+                        <MenuItem.Tag>
+                            <sys:Double>1.0</sys:Double>
+                        </MenuItem.Tag>
+                    </MenuItem>
+                    <MenuItem Header="_2x" IsCheckable="True" Click="ScaleItem_Click">
+                        <MenuItem.Tag>
+                            <sys:Double>2.0</sys:Double>
+                        </MenuItem.Tag>
+                    </MenuItem>
+                    <MenuItem Header="_4x" IsCheckable="True" Click="ScaleItem_Click">
+                        <MenuItem.Tag>
+                            <sys:Double>4.0</sys:Double>
+                        </MenuItem.Tag>
+                    </MenuItem>
+                    <MenuItem Header="_8x" IsCheckable="True" Click="ScaleItem_Click">
+                        <MenuItem.Tag>
+                            <sys:Double>8.0</sys:Double>
+                        </MenuItem.Tag>
+                    </MenuItem>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+        <Image x:Name="nesDisplay" Grid.Row="1" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
     </Grid>
 </Window>
