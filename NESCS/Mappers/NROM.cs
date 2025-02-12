@@ -1,6 +1,6 @@
 ﻿namespace NESCS.Mappers
 {
-    public class NROM(Mirroring nametableMirroring, bool useLargerPrgRom, bool useLargerPrgRam) : IMapper
+    public class NROM(Mirroring nametableMirroring, bool useLargerPrgRom, bool useLargerPrgRam, bool prgRamPresent) : IMapper
     {
         public string Name => nameof(NROM);
         public string[] OtherNames { get; } = new string[] { "iNES Mapper 000", "RROM", "SROM", "RTROM", "STROM", "HROM" };
@@ -17,12 +17,16 @@
 
         public byte[] CiRam { get; } = new byte[0x800];
 
+        public bool PrgRamPresent { get; } = prgRamPresent;
+
         public byte MappedCPURead(ushort address)
         {
             return address switch
             {
                 < 0x6000 => (byte)(address >> 8),  // Open bus
-                <= 0x7FFF => PrgRam[address % PrgRam.Length],
+                <= 0x7FFF => PrgRamPresent
+                    ? PrgRam[address % PrgRam.Length]
+                    : (byte)(address >> 8),  // Open bus
                 <= 0xFFFF => PrgRom[address % PrgRom.Length]
             };
         }
@@ -34,7 +38,10 @@
                 case < 0x6000:
                     break; // Open bus
                 case <= 0x7FFF:
-                    PrgRam[address % PrgRam.Length] = value;
+                    if (PrgRamPresent)
+                    {
+                        PrgRam[address % PrgRam.Length] = value;
+                    }
                     break;
                 case <= 0xFFFF:
                     PrgRom[address % PrgRom.Length] = value;

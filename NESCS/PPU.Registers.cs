@@ -25,9 +25,7 @@
         SpriteEnable = 0b10000,
         ColorEmphasisRed = 0b100000,
         ColorEmphasisGreen = 0b1000000,
-        ColorEmphasisBlue = 0b10000000,
-
-        RenderingEnable = BackgroundEnable | SpriteEnable
+        ColorEmphasisBlue = 0b10000000
     }
 
     [Flags]
