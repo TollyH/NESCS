@@ -206,33 +206,33 @@
 
             wasNMIEnabledPreviously = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable);
 
-            if (Cycle == 0)
-            {
-                // Idle cycle
-                Registers.OAMADDR = 0;
-                spritesOnScanline = 0;
-                fetchingSpriteIndex = 0;
-                return;
-            }
-
-            if (!IsRenderingEnabled)
-            {
-                if (Scanline is >= 0 and < VisibleScanlinesPerFrame
-                    && Cycle is >= 1 and <= VisibleCyclesPerFrame)
-                {
-                    // The colour displayed when rendering is disabled is usually the backdrop colour,
-                    // unless V is currently in palette RAM in which case that colour is used
-                    OutputPixels[Scanline, Cycle - 1] = Registers.V is >= PaletteRAMStartAddress and <= PaletteRAMEndAddress
-                        ? CurrentPalette[this[Registers.V]]
-                        : CurrentPalette[this[PaletteRAMStartAddress]];
-                }
-                return;
-            }
-
             switch (Scanline)
             {
                 // Visible scanlines & Pre-render scanline
                 case <= VisibleScanlinesPerFrame - 1:
+                    if (Cycle == 0)
+                    {
+                        // Idle cycle
+                        Registers.OAMADDR = 0;
+                        spritesOnScanline = 0;
+                        fetchingSpriteIndex = 0;
+                        return;
+                    }
+
+                    if (!IsRenderingEnabled)
+                    {
+                        if (Scanline is >= 0 and < VisibleScanlinesPerFrame
+                            && Cycle is >= 1 and <= VisibleCyclesPerFrame)
+                        {
+                            // The colour displayed when rendering is disabled is usually the backdrop colour,
+                            // unless V is currently in palette RAM in which case that colour is used
+                            OutputPixels[Scanline, Cycle - 1] = Registers.V is >= PaletteRAMStartAddress and <= PaletteRAMEndAddress
+                                ? CurrentPalette[this[Registers.V]]
+                                : CurrentPalette[this[PaletteRAMStartAddress]];
+                        }
+                        return;
+                    }
+
                     if (Scanline == -1)
                     {
                         // Pre-render scanline
@@ -255,7 +255,11 @@
                         {
                             if (Cycle < SpriteEvaluationStartCycle)
                             {
-                                secondaryOAM[Cycle - 1] = 0xFF;
+                                // Secondary OAM clear
+                                if (Cycle % 2 == 1)
+                                {
+                                    secondaryOAM[(Cycle - 1) / 2] = 0xFF;
+                                }
                             }
                             else if (Cycle < SpriteFetchStartCycle)
                             {

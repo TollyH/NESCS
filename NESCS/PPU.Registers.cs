@@ -74,8 +74,8 @@
         /// </summary>
         public ushort V
         {
-            get => (byte)(_v & 0b111111111111111);
-            set => _v = (byte)(value & 0b111111111111111);
+            get => (ushort)(_v & 0b111111111111111);
+            set => _v = (ushort)(value & 0b111111111111111);
         }
 
         private ushort _t;
@@ -84,8 +84,8 @@
         /// </summary>
         public ushort T
         {
-            get => (byte)(_t & 0b111111111111111);
-            set => _t = (byte)(value & 0b111111111111111);
+            get => (ushort)(_t & 0b111111111111111);
+            set => _t = (ushort)(value & 0b111111111111111);
         }
 
         private byte _x;
@@ -167,9 +167,11 @@
                     case MappedPPUCTRLAddress or MappedPPUMASKAddress or MappedOAMADDRAddress or MappedPPUSCROLLAddress or MappedPPUADDRAddress:
                         return dataBus;  // Write-only registers
                     case 0x2002:
-                        // Reading PPUSTATUS resets write latch
+                        PPUSTATUSFlags beforeChange = PPUSTATUS;
+                        // Reading PPUSTATUS resets write latch and clears VBlank flag
                         W = false;
-                        return (byte)PPUSTATUS;
+                        PPUSTATUS &= ~PPUSTATUSFlags.VerticalBlank;
+                        return (byte)beforeChange;
                     case 0x2004:
                         return ppuCore.ObjectAttributeMemory[OAMADDR];
                     case 0x2007:
@@ -224,7 +226,7 @@
                         if (!W)
                         {
                             // First write
-                            T = (ushort)((T & 0b000000011111111) | ((dataBus & 0b111111) << 8));
+                            T = (ushort)((T & 0b000000011111111) | (dataBus << 8));
                             W = true;
                         }
                         else
