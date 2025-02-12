@@ -1,6 +1,6 @@
 ﻿namespace NESCS.Mappers
 {
-    public class NROM(Mirroring nametableMirroring, bool useLargerPrgRom, bool useLargerPrgRam, bool prgRamPresent) : IMapper
+    public class NROM(NESSystem nesSystem, Mirroring nametableMirroring, bool useLargerPrgRom, bool useLargerPrgRam, bool prgRamPresent) : IMapper
     {
         public string Name => nameof(NROM);
         public string[] OtherNames { get; } = new string[] { "iNES Mapper 000", "RROM", "SROM", "RTROM", "STROM", "HROM" };
@@ -14,8 +14,6 @@
         public byte[] PrgRom { get; } = new byte[useLargerPrgRom ? 0x8000 : 0x4000];
         public byte[] ChrRom { get; } = new byte[0x2000];
         public byte[] PrgRam { get; } = new byte[useLargerPrgRam ? 0x0800 : 0x1000];
-
-        public byte[] CiRam { get; } = new byte[0x800];
 
         public bool PrgRamPresent { get; } = prgRamPresent;
 
@@ -54,7 +52,7 @@
             return address switch
             {
                 <= 0x1FFF => ChrRom[address],
-                <= 0x3EFF => CiRam[GetMirroredCiRamAddress(address)],
+                <= 0x3EFF => nesSystem.SystemMemory.CiRam[GetMirroredCiRamAddress(address)],
                 _ => (byte)(address >> 8)  // Open bus
             };
         }
@@ -67,7 +65,7 @@
                     // ROM is read-only
                     break;
                 case <= 0x3EFF:
-                    CiRam[GetMirroredCiRamAddress(address)] = value;
+                    nesSystem.SystemMemory.CiRam[GetMirroredCiRamAddress(address)] = value;
                     break;
             }
         }

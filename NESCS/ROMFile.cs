@@ -70,7 +70,7 @@ namespace NESCS
             file[chrRomStart..].CopyTo(ChrRom);
         }
 
-        public IMapper InitializeNewMapper()
+        public IMapper InitializeNewMapper(NESSystem nesSystem)
         {
             switch (MapperNumber)
             {
@@ -78,7 +78,7 @@ namespace NESCS
                 case 0:
                     // The only official mapper 0 games to use PRG RAM (Family Basic) either use both larger PRG ROM and larger PRG RAM or neither.
                     bool prgLarger = PrgRom.Length > 16384;
-                    NROM nromMapper = new(NametableMirroring, prgLarger, prgLarger, PrgRamPresent);
+                    NROM nromMapper = new(nesSystem, NametableMirroring, prgLarger, prgLarger, PrgRamPresent);
                     PrgRom.CopyTo(nromMapper.PrgRom, 0);
                     ChrRom.CopyTo(nromMapper.ChrRom, 0);
                     return nromMapper;

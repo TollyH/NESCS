@@ -2,7 +2,8 @@
 {
     public class Memory(NESSystem nesSystem)
     {
-        public readonly byte[] InternalRAM = new byte[0x0800];
+        public readonly byte[] InternalRam = new byte[0x0800];
+        public readonly byte[] CiRam = new byte[0x800];
 
         public byte this[ushort address]
         {
@@ -10,7 +11,7 @@
             {
                 return address switch
                 {
-                    <= 0x1FFF => InternalRAM[(ushort)(address & 0x07FF)],
+                    <= 0x1FFF => InternalRam[(ushort)(address & 0x07FF)],
                     <= 0x3FFF => nesSystem.PpuCore.Registers[address],
                     <= 0x4017 => nesSystem.ApuCore.Registers[address],
                     <= 0xFFFF => nesSystem.InsertedCartridgeMapper.MappedCPURead(address)
@@ -21,7 +22,7 @@
                 switch (address)
                 {
                     case <= 0x1FFF:
-                        InternalRAM[(ushort)(address & 0x07FF)] = value;
+                        InternalRam[(ushort)(address & 0x07FF)] = value;
                         break;
                     case <= 0x3FFF:
                         nesSystem.PpuCore.Registers[address] = value;

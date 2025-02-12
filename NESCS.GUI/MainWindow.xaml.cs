@@ -102,7 +102,7 @@ namespace NESCS.GUI
             try
             {
                 ROMFile rom = new(File.ReadAllBytes(file));
-                EmulatedNesSystem.InsertedCartridgeMapper = rom.InitializeNewMapper();
+                EmulatedNesSystem.InsertedCartridgeMapper = rom.InitializeNewMapper(EmulatedNesSystem);
                 if (reset)
                 {
                     ResetEmulation(false);
