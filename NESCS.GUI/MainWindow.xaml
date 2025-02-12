@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:NESCS.GUI"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         mc:Ignorable="d"
-        Title="NESCS" UseLayoutRounding="True" SizeToContent="WidthAndHeight" ResizeMode="CanMinimize" KeyDown="Window_KeyDown" Closed="Window_Closed">
+        Title="NESCS" UseLayoutRounding="True" SizeToContent="WidthAndHeight" ResizeMode="CanMinimize" KeyDown="Window_KeyDown" KeyUp="Window_KeyUp" Closed="Window_Closed">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

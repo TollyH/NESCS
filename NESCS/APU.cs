@@ -1,7 +1,7 @@
 ﻿namespace NESCS
 {
-    public class APU(CPU cpuCore)
+    public class APU(NESSystem nesSystem)
     {
-        public readonly APURegisters Registers = new(cpuCore);
+        public readonly APURegisters Registers = new(nesSystem);
     }
 }

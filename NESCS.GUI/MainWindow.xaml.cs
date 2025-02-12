@@ -18,6 +18,8 @@ namespace NESCS.GUI
 
         public bool EmulationRunning => emulationThread is { IsAlive: true };
 
+        private readonly Controllers.StandardController controller = new();
+
         private readonly WriteableBitmap nesDisplayBitmap = new(
             PPU.VisibleCyclesPerFrame,
             PPU.VisibleScanlinesPerFrame,
@@ -35,7 +37,10 @@ namespace NESCS.GUI
 
         public MainWindow()
         {
-            EmulatedNesSystem = new NESSystem();
+            EmulatedNesSystem = new NESSystem()
+            {
+                ControllerOne = controller
+            };
             EmulatedNesSystem.FrameComplete += EmulatedNesSystem_FrameComplete;
 
             InitializeComponent();
@@ -186,6 +191,7 @@ namespace NESCS.GUI
         {
             switch (e.Key)
             {
+                // Emulator shortcuts
                 case Key.O when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
                     PromptROMLoad(true);
                     break;
@@ -203,6 +209,65 @@ namespace NESCS.GUI
                     break;
                 case Key.R when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
                     ResetEmulation(true);
+                    break;
+                // Controller input
+                // TODO: Make configurable
+                case Key.W:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Up;
+                    break;
+                case Key.A:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Left;
+                    break;
+                case Key.S:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Down;
+                    break;
+                case Key.D:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Right;
+                    break;
+                case Key.U:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Select;
+                    break;
+                case Key.I:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.Start;
+                    break;
+                case Key.J:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.A;
+                    break;
+                case Key.K:
+                    controller.HeldButtons |= Controllers.StandardControllerButtons.B;
+                    break;
+            }
+        }
+
+        private void Window_KeyUp(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                // Controller input
+                // TODO: Make configurable
+                case Key.W:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Up;
+                    break;
+                case Key.A:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Left;
+                    break;
+                case Key.S:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Down;
+                    break;
+                case Key.D:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Right;
+                    break;
+                case Key.U:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Select;
+                    break;
+                case Key.I:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.Start;
+                    break;
+                case Key.J:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.A;
+                    break;
+                case Key.K:
+                    controller.HeldButtons &= ~Controllers.StandardControllerButtons.B;
                     break;
             }
         }

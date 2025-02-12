@@ -16,6 +16,9 @@ namespace NESCS
 
         public IMapper InsertedCartridgeMapper { get; set; } = new Mappers.Empty();
 
+        public IController ControllerOne { get; set; } = new Controllers.Empty();
+        public IController ControllerTwo { get; set; } = new Controllers.Empty();
+
         public readonly Memory SystemMemory;
 
         public readonly CPU CpuCore;
@@ -35,7 +38,7 @@ namespace NESCS
             PpuCore = new PPU(this, PPU.NtscScanlinesPerFrame);
             SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
-            ApuCore = new APU(CpuCore);
+            ApuCore = new APU(this);
         }
 
         /// <summary>
