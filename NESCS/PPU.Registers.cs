@@ -49,6 +49,15 @@
         public const ushort MappedPPUADDRAddress = 0x2006;
         public const ushort MappedPPUDATAAddress = 0x2007;
 
+        private const byte mirroredPPUCTRLAddress = 0x00;
+        private const byte mirroredPPUMASKAddress = 0x01;
+        private const byte mirroredPPUSTATUSAddress = 0x02;
+        private const byte mirroredOAMADDRAddress = 0x03;
+        private const byte mirroredOAMDATAAddress = 0x04;
+        private const byte mirroredPPUSCROLLAddress = 0x05;
+        private const byte mirroredPPUADDRAddress = 0x06;
+        private const byte mirroredPPUDATAAddress = 0x07;
+
         /// <summary>
         /// Mapped to 0x2000 - Miscellaneous settings
         /// </summary>
@@ -160,19 +169,19 @@
         {
             get
             {
-                switch (mappedAddress)
+                switch (mappedAddress & 0b111)
                 {
-                    case MappedPPUCTRLAddress or MappedPPUMASKAddress or MappedOAMADDRAddress or MappedPPUSCROLLAddress or MappedPPUADDRAddress:
+                    case mirroredPPUCTRLAddress or mirroredPPUMASKAddress or mirroredOAMADDRAddress or mirroredPPUSCROLLAddress or mirroredPPUADDRAddress:
                         return dataBus;  // Write-only registers
-                    case 0x2002:
+                    case mirroredPPUSTATUSAddress:
                         PPUSTATUSFlags beforeChange = PPUSTATUS;
                         // Reading PPUSTATUS resets write latch and clears VBlank flag
                         W = false;
                         PPUSTATUS &= ~PPUSTATUSFlags.VerticalBlank;
                         return (byte)beforeChange;
-                    case 0x2004:
+                    case mirroredOAMDATAAddress:
                         return ppuCore.ObjectAttributeMemory[OAMADDR];
-                    case 0x2007:
+                    case mirroredPPUDATAAddress:
                         byte returnValue = readBuffer;
                         readBuffer = ppuCore[(ushort)(V & 0b11111111111111)];
                         IncrementPPUADDR();
@@ -185,27 +194,27 @@
             {
                 dataBus = value;
 
-                switch (mappedAddress)
+                switch (mappedAddress & 0b111)
                 {
-                    case MappedPPUCTRLAddress:
+                    case mirroredPPUCTRLAddress:
                         PPUCTRL = (PPUCTRLFlags)(dataBus & 0b11111100);
                         // Nametable selection bits are stored separately
                         T = (ushort)((T & 0b111001111111111) | ((dataBus & 0b11) << 10));
                         break;
-                    case MappedPPUMASKAddress:
+                    case mirroredPPUMASKAddress:
                         PPUMASK = (PPUMASKFlags)dataBus;
                         break;
-                    case MappedPPUSTATUSAddress:
+                    case mirroredPPUSTATUSAddress:
                         // PPUSTATUS is Read-only
                         break;
-                    case MappedOAMADDRAddress:
+                    case mirroredOAMADDRAddress:
                         OAMADDR = dataBus;
                         break;
-                    case MappedOAMDATAAddress:
+                    case mirroredOAMDATAAddress:
                         ppuCore.ObjectAttributeMemory[OAMADDR] = dataBus;
                         OAMADDR++;
                         break;
-                    case MappedPPUSCROLLAddress:
+                    case mirroredPPUSCROLLAddress:
                         if (!W)
                         {
                             // First write
@@ -220,7 +229,7 @@
                             W = false;
                         }
                         break;
-                    case MappedPPUADDRAddress:
+                    case mirroredPPUADDRAddress:
                         if (!W)
                         {
                             // First write
@@ -235,7 +244,7 @@
                             W = false;
                         }
                         break;
-                    case MappedPPUDATAAddress:
+                    case mirroredPPUDATAAddress:
                         ppuCore[V] = dataBus;
                         IncrementPPUADDR();
                         break;
