@@ -142,13 +142,15 @@
                 Registers.A = 0;
                 Registers.X = 0;
                 Registers.Y = 0;
-                Registers.P |= CPUStatusFlags.InterruptDisable;
+                Registers.P = CPUStatusFlags.InterruptDisable | CPUStatusFlags.Always;
                 Registers.S = 0xFD;
 
                 ExecutedCycles = 0;
             }
             else
             {
+                Registers.P |= CPUStatusFlags.InterruptDisable;
+
                 InterruptStatePush();
             }
         }
