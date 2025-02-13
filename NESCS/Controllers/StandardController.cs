@@ -28,7 +28,16 @@
             }
         }
 
-        public StandardControllerButtons HeldButtons { get; set; }
+        private StandardControllerButtons _heldButtons = StandardControllerButtons.None;
+        public StandardControllerButtons HeldButtons
+        {
+            get => _heldButtons;
+            set
+            {
+                _heldButtons = value;
+                RefreshShiftRegister();
+            }
+        }
 
         private byte readShiftRegister = 0;
 
