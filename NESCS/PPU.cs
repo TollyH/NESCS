@@ -85,6 +85,9 @@
         private readonly byte[] secondaryOAM = new byte[MaximumSpritesPerScanline * SpriteDataSize];
         private int spritesOnScanline = 0;
 
+        // Background data is fetched two tiles in advance.
+        // Once data is fetch fetched, it takes another fetch cycle before it is pending to be rendered.
+        private FetchedBackgroundData fetchedBackgroundData = new();
         private FetchedBackgroundData pendingBackgroundData = new();
         private readonly FetchedSpriteData[] pendingSpriteData = new FetchedSpriteData[MaximumSpritesPerScanline];
 
@@ -279,7 +282,8 @@
                                 break;
                             case 1:
                                 // First dot of tile will be rendered this cycle, store background data needed for rendering
-                                pendingBackgroundData = new FetchedBackgroundData(
+                                pendingBackgroundData = fetchedBackgroundData;
+                                fetchedBackgroundData = new FetchedBackgroundData(
                                     fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
                                 break;
                         }
@@ -350,14 +354,7 @@
                     break;
                 case 0b101:
                 case 0b111:
-                    int scanline = Scanline;
-                    if (Cycle >= NextScanlineTileStartCycle)
-                    {
-                        // Fetching data for next scanline
-                        scanline++;
-                    }
-
-                    ushort patternAddress = (ushort)((fetchedNametableData << 4) | ((scanline + Registers.FineYScroll) & 0b111));
+                    ushort patternAddress = (ushort)((fetchedNametableData << 4) | Registers.FineYScroll);
                     if (Registers.PPUCTRL.HasFlag(PPUCTRLFlags.BackgroundTileSelect))
                     {
                         patternAddress |= 0b1000000000000;
@@ -379,7 +376,7 @@
         private void RunSpriteFetchDotLogic()
         {
             int cycleRem = Cycle & 0b111;
-            if (cycleRem is 0b110 or 0b000)
+            if (cycleRem is 0b110 or 0b000 && fetchingSpriteIndex < MaximumSpritesPerScanline)
             {
                 bool tallSprites = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteHeight);
 
@@ -451,21 +448,18 @@
 
         private void RenderDot()
         {
-            int pixelXIndex = Cycle - 1;
-
             int bgPaletteIndex = 0;
             int bgPalette = 0;
             if (Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable))
             {
-                int bgXOffset = (Registers.X + pixelXIndex) & 0b111;
+                // Left most (first) pixel is stored in most significant (last) bit
+                int bgXOffset = 7 - ((Registers.X + Cycle - 1) & 0b111);
                 int bgBit = 1 << bgXOffset;
                 bgPaletteIndex = ((pendingBackgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
-                    | ((pendingBackgroundData.PatternTableDataHigh & bgBit) >> (bgXOffset - 1));
+                    | (((pendingBackgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
 
-                int bgXAttrOffset = (Registers.X + pixelXIndex) & 0b1111;
-                int bgYAttrOffset = (Registers.FineYScroll + Scanline) & 0b1111;
                 // Get the current quadrant from the attribute data (each 2x2 tile area is packed in the same attribute byte)
-                bgPalette = pendingBackgroundData.AttributeTableData >> (((bgXAttrOffset & 0b1000) >> 2) + ((bgYAttrOffset & 0b1000) >> 1));
+                bgPalette = pendingBackgroundData.AttributeTableData >> (((Registers.CoarseXScroll & 0b1000) >> 2) + ((Registers.CoarseYScroll & 0b1000) >> 1));
             }
 
             int spritePaletteIndex = 0;
@@ -483,7 +477,7 @@
                         continue;
                     }
 
-                    int spriteXOffset = (Registers.X + spriteData.XPosition + pixelXIndex) & 0b111;
+                    int spriteXOffset = (Registers.X + spriteData.XPosition) & 0b111;
                     if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
                     {
                         // Flip horizontally
@@ -526,7 +520,7 @@
                 paletteIndexToRender = this[PaletteRAMStartAddress];
             }
 
-            OutputPixels[Scanline, pixelXIndex] = CurrentPalette[paletteIndexToRender];
+            OutputPixels[Scanline, Cycle - 1] = CurrentPalette[paletteIndexToRender];
         }
     }
 }
