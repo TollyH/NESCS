@@ -31,12 +31,6 @@ namespace NESCS
                 throw new ArgumentException("File does not start with the correct header bytes.");
             }
 
-            // PRG ROM size is specified in 16 KiB chunks
-            PrgRom = new byte[file[4] * 16384];
-
-            // PRG ROM size is specified in 8 KiB chunks
-            ChrRom = new byte[file[5] * 8192];
-
             byte flags6 = file[6];
             byte flags7 = file[7];
 
@@ -58,6 +52,8 @@ namespace NESCS
                 throw new NotSupportedException("ROM files for the VS System, PlayChoice-10, and other non-NES/Famicom are currently unsupported.");
             }
 
+            int prgRomSize;
+            int chrRomSize;
             if ((flags7 & 0b1100) == 0b1000)
             {
                 // NES 2.0 format
@@ -68,7 +64,47 @@ namespace NESCS
                 {
                     throw new NotSupportedException("Submappers are currently unsupported.");
                 }
+
+                byte prgChrSizeByte = file[9];
+
+                byte prgLsb = file[4];
+                int prgMsb = prgChrSizeByte & 0b1111;
+                if (prgMsb == 0xF)
+                {
+                    // Exponential format
+                    prgRomSize = (1 << (prgLsb >> 2)) * ((prgLsb & 0b11) * 2 + 1);
+                }
+                else
+                {
+                    // 16 KiB chunk format
+                    prgRomSize = (prgLsb | (prgMsb << 8)) * 16384;
+                }
+
+                byte chrLsb = file[5];
+                int chrMsb = (prgChrSizeByte & 0b11110000) >> 4;
+                if (chrMsb == 0xF)
+                {
+                    // Exponential format
+                    chrRomSize = (1 << (chrLsb >> 2)) * ((chrLsb & 0b11) * 2 + 1);
+                }
+                else
+                {
+                    // 8 KiB chunk format
+                    chrRomSize = (chrLsb | (chrMsb << 8)) * 8192;
+                }
             }
+            else
+            {
+                // iNES format
+                // PRG ROM size is specified in 16 KiB chunks
+                prgRomSize = file[4] * 16384;
+                // CHR ROM size is specified in 8 KiB chunks
+                chrRomSize = file[5] * 8192;
+            }
+
+            PrgRom = new byte[prgRomSize];
+
+            ChrRom = new byte[chrRomSize];
 
             int chrRomStart = PrgRom.Length + 16;
 
