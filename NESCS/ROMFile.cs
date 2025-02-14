@@ -61,7 +61,13 @@ namespace NESCS
             if ((flags7 & 0b1100) == 0b1000)
             {
                 // NES 2.0 format
-                throw new NotSupportedException("The NES 2.0 format is currently unsupported.");
+                byte flags8 = file[8];
+                MapperNumber |= (flags8 & 0b1111) << 8;
+
+                if ((flags8 & 0b11110000) != 0)
+                {
+                    throw new NotSupportedException("Submappers are currently unsupported.");
+                }
             }
 
             int chrRomStart = PrgRom.Length + 16;
