@@ -448,18 +448,20 @@
 
         private void RenderDot()
         {
+            int screenXOffset = Cycle - 1;
             int bgPaletteIndex = 0;
             int bgPalette = 0;
             if (Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable))
             {
                 // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = 7 - ((Registers.X + Cycle - 1) & 0b111);
+                int bgXOffset = 7 - ((Registers.X + screenXOffset) & 0b111);
                 int bgBit = 1 << bgXOffset;
                 bgPaletteIndex = ((pendingBackgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
                     | (((pendingBackgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
 
-                // Get the current quadrant from the attribute data (each 2x2 tile area is packed in the same attribute byte)
-                bgPalette = pendingBackgroundData.AttributeTableData >> (((Registers.CoarseXScroll & 0b1000) >> 2) + ((Registers.CoarseYScroll & 0b1000) >> 1));
+                // Get the current 16x16 quadrant from the 32x32 attribute data
+                // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
+                bgPalette = (pendingBackgroundData.AttributeTableData >> (((screenXOffset & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
             }
 
             int spritePaletteIndex = 0;
@@ -503,6 +505,7 @@
                 }
             }
 
+            // Palette indices of 0 are always transparent regardless of the contents of palette RAM at the corresponding address
             int paletteIndexToRender;
             if (bgPaletteIndex != 0 && (spriteBehindBackground || spritePaletteIndex == 0))
             {
@@ -520,7 +523,7 @@
                 paletteIndexToRender = this[PaletteRAMStartAddress];
             }
 
-            OutputPixels[Scanline, Cycle - 1] = CurrentPalette[paletteIndexToRender];
+            OutputPixels[Scanline, screenXOffset] = CurrentPalette[paletteIndexToRender];
         }
     }
 }
