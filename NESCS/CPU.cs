@@ -187,7 +187,6 @@
                 {
                     systemMemory[PPURegisters.MappedOAMDATAAddress] = oamDmaLastReadValue;
 
-                    systemMemory[PPURegisters.MappedOAMADDRAddress]++;
                     if (++oamDmaOffset == 0)
                     {
                         // Overflowed - DMA is complete
@@ -266,8 +265,6 @@
 
             // Read/write cycle will switch when next cycle is executed, so delay will be required if currently on a read cycle
             oamDmaDelay = oamDmaReadCycle;
-
-            systemMemory[PPURegisters.MappedOAMADDRAddress] = 0;
         }
 
         /// <summary>

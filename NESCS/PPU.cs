@@ -89,6 +89,7 @@
         // Once data is fetch fetched, it takes another fetch cycle before it is pending to be rendered.
         private FetchedBackgroundData fetchedBackgroundData = new();
         private FetchedBackgroundData pendingBackgroundData = new();
+        private int pendingSpriteCount = 0;
         private readonly FetchedSpriteData[] pendingSpriteData = new FetchedSpriteData[MaximumSpritesPerScanline];
 
         public PPU(NESSystem system, int scanlinesPerFrame)
@@ -216,7 +217,8 @@
                     if (Cycle == 0)
                     {
                         // Idle cycle
-                        Registers.OAMADDR = 0;
+                        // Reset per-scanline internal state specific to this emulator here
+                        pendingSpriteCount = spritesOnScanline;
                         spritesOnScanline = 0;
                         fetchingSpriteIndex = 0;
                         return;
@@ -275,10 +277,6 @@
                             case 0:
                                 // Last fetch for tile was just completed, increment to next one
                                 Registers.CoarseXScrollIncrement();
-                                if (Cycle == SpriteFetchStartCycle - 1)
-                                {
-                                    Registers.YScrollIncrement();
-                                }
                                 break;
                             case 1:
                                 // First dot of tile will be rendered this cycle, store background data needed for rendering
@@ -287,9 +285,16 @@
                                     fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
                                 break;
                         }
+
+                        if (Cycle == SpriteFetchStartCycle - 1)
+                        {
+                            Registers.YScrollIncrement();
+                        }
                     }
                     else
                     {
+                        Registers.OAMADDR = 0;
+
                         RunSpriteFetchDotLogic();
 
                         if (Cycle == SpriteFetchStartCycle)
@@ -298,7 +303,7 @@
                             Registers.V = (ushort)((Registers.V & 0b111101111100000) | (Registers.T & 0b000010000011111));
                         }
 
-                        if ((Cycle & 0b111) == 1)
+                        if ((Cycle & 0b111) == 0)
                         {
                             if (fetchingSpriteIndex < spritesOnScanline)
                             {
@@ -376,7 +381,7 @@
         private void RunSpriteFetchDotLogic()
         {
             int cycleRem = Cycle & 0b111;
-            if (cycleRem is 0b110 or 0b000 && fetchingSpriteIndex < MaximumSpritesPerScanline)
+            if (cycleRem is 0b110 or 0b000 && fetchingSpriteIndex < spritesOnScanline)
             {
                 bool tallSprites = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteHeight);
 
@@ -384,7 +389,7 @@
                 byte yCoord = secondaryOAM[startIndex];
                 byte tileIndexData = secondaryOAM[startIndex + 1];
                 byte attributes = secondaryOAM[startIndex + 2];
-                int yDiff = (yCoord - Scanline) & 0b1111;
+                int yDiff = (Registers.CoarseYScroll * 8 + Registers.FineYScroll - yCoord - 1) & 0b1111;
                 if ((attributes & 0b10000000) != 0)
                 {
                     // Vertical flip
@@ -400,9 +405,10 @@
                     tileIndexData += 0b10;
                 }
 
-                ushort patternAddress = (ushort)(((tileIndexData & 0b1111110) << 3) | (yDiff & 0b111));
+                // 8x8 sprites use the sprite's entire tile index and use PPUCTRL to select the tile bank.
+                // 8x16 sprites instead use the least significant bit of the tile index as a bank selection and ignore PPUCTRL.
+                ushort patternAddress = (ushort)((tallSprites ? ((tileIndexData & 0b1111110) << 3) : (tileIndexData << 4)) | (yDiff & 0b111));
                 if ((tallSprites && (tileIndexData & 1) != 0)
-                    // 8x8 sprites ignore the bank selection in the sprite's tile index and instead use the table selected in PPUCTRL
                     || (!tallSprites && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteTileSelect)))
                 {
                     patternAddress |= 0b1000000000000;
@@ -422,27 +428,30 @@
 
         private void RunSpriteEvaluationDotLogic()
         {
-            if (Cycle % 2 != 0)
+            if (Cycle % 3 == 2)
             {
                 byte yCoord = ObjectAttributeMemory[Registers.OAMADDR];
-                int yDiff = yCoord - Scanline;
-                if (yDiff > 0 && yDiff <= SpriteHeight)
+                int yDiff = Registers.CoarseYScroll * 8 + Registers.FineYScroll - yCoord;
+                if (yDiff < 0 || yDiff >= SpriteHeight)
                 {
-                    if (spritesOnScanline >= MaximumSpritesPerScanline)
-                    {
-                        Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteOverflow;
-                    }
-                    else
-                    {
-                        int startIndex = spritesOnScanline * SpriteDataSize;
-                        for (int i = 0; i < SpriteDataSize; i++)
-                        {
-                            secondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR + i];
-                        }
-                        spritesOnScanline++;
-                    }
+                    // Sprite is not on this scanline - skip it
+                    Registers.OAMADDR += SpriteDataSize;
+                    return;
                 }
-                Registers.OAMADDR += SpriteDataSize;
+
+                if (spritesOnScanline >= MaximumSpritesPerScanline)
+                {
+                    Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteOverflow;
+                }
+                else
+                {
+                    int startIndex = spritesOnScanline * SpriteDataSize;
+                    for (int i = 0; i < SpriteDataSize; i++)
+                    {
+                        secondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR++];
+                    }
+                    spritesOnScanline++;
+                }
             }
         }
 
@@ -469,17 +478,18 @@
             int spritePalette = 0;
             if (Registers.PPUMASK.HasFlag(PPUMASKFlags.SpriteEnable))
             {
-                for (int spriteIndex = 0; spriteIndex < pendingSpriteData.Length; spriteIndex++)
+                for (int spriteIndex = 0; spriteIndex < pendingSpriteCount; spriteIndex++)
                 {
                     FetchedSpriteData spriteData = pendingSpriteData[spriteIndex];
 
-                    if (spriteData.XPosition > Cycle || spriteData.XPosition < Cycle - 8)
+                    if (screenXOffset - spriteData.XPosition is < 0 or >= 8)
                     {
                         // Sprite out of horizontal range
                         continue;
                     }
 
-                    int spriteXOffset = (Registers.X + spriteData.XPosition) & 0b111;
+                    // Left most (first) pixel is stored in most significant (last) bit
+                    int spriteXOffset = 7 - ((Registers.X + spriteData.XPosition + screenXOffset) & 0b111);
                     if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
                     {
                         // Flip horizontally
@@ -487,7 +497,7 @@
                     }
                     int spriteBit = 1 << spriteXOffset;
                     spritePaletteIndex = ((spriteData.PatternTableDataLow & spriteBit) >> spriteXOffset)
-                        | ((spriteData.PatternTableDataHigh & spriteBit) >> (spriteXOffset - 1));
+                        | (((spriteData.PatternTableDataHigh & spriteBit) >> spriteXOffset) << 1);
 
                     if (spritePaletteIndex != 0)
                     {

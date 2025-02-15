@@ -183,7 +183,7 @@
                         return ppuCore.ObjectAttributeMemory[OAMADDR];
                     case mirroredPPUDATAAddress:
                         byte returnValue = readBuffer;
-                        readBuffer = ppuCore[(ushort)(V & 0b11111111111111)];
+                        readBuffer = ppuCore[V];
                         IncrementPPUADDR();
                         return returnValue;
                     default:
@@ -211,6 +211,11 @@
                         OAMADDR = dataBus;
                         break;
                     case mirroredOAMDATAAddress:
+                        if (ppuCore.IsCurrentlyRendering)
+                        {
+                            // OAM updates are ignored during rendering
+                            break;
+                        }
                         ppuCore.ObjectAttributeMemory[OAMADDR] = dataBus;
                         OAMADDR++;
                         break;
