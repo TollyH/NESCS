@@ -2,7 +2,7 @@
 {
     public class PPU
     {
-        private readonly record struct FetchedBackgroundData(byte AttributeTableData, byte PatternTableDataLow, byte PatternTableDataHigh);
+        private readonly record struct FetchedBackgroundData(byte XPosition, byte AttributeTableData, byte PatternTableDataLow, byte PatternTableDataHigh);
         private readonly record struct FetchedSpriteData(byte XPosition, byte SpriteAttributeData, byte PatternTableDataLow, byte PatternTableDataHigh);
 
         public const int NtscScanlinesPerFrame = 262;
@@ -75,6 +75,7 @@
         // Used to trigger an NMI if the flag is toggled on midway through the blanking interval.
         private bool wasNMIEnabledPreviously = false;
 
+        private byte fetchedCoarseX = 0;
         private byte fetchedNametableData = 0;
         private byte fetchedAttributeTableData = 0;
         private byte fetchedPatternTableDataLow = 0;
@@ -184,7 +185,7 @@
             Cycle++;
             if (Cycle >= CyclesPerScanline
                 // Every other frame skips the last cycle of the pre-render scanline
-                || (OddFrame && Cycle == CyclesPerScanline - 1))
+                || (OddFrame && Scanline == -1 && Cycle == CyclesPerScanline - 1))
             {
                 Cycle = 0;
                 Scanline++;
@@ -272,18 +273,23 @@
                             }
                         }
 
-                        switch (Cycle & 0b111)
+                        // There is no newly fetched background data on the first active cycle to move into storage for rendering,
+                        // all the data for the first two tiles was moved in the previous scanline.
+                        if (Cycle > 1)
                         {
-                            case 0:
-                                // Last fetch for tile was just completed, increment to next one
-                                Registers.CoarseXScrollIncrement();
-                                break;
-                            case 1:
-                                // First dot of tile will be rendered this cycle, store background data needed for rendering
-                                pendingBackgroundData = fetchedBackgroundData;
-                                fetchedBackgroundData = new FetchedBackgroundData(
-                                    fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
-                                break;
+                            switch (Cycle & 0b111)
+                            {
+                                case 0:
+                                    // Last fetch for tile was just completed, increment to next one
+                                    Registers.CoarseXScrollIncrement();
+                                    break;
+                                case 1:
+                                    // First dot of tile will be rendered this cycle, store background data needed for rendering
+                                    pendingBackgroundData = fetchedBackgroundData;
+                                    fetchedBackgroundData = new FetchedBackgroundData(
+                                        fetchedCoarseX, fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
+                                    break;
+                            }
                         }
 
                         if (Cycle == SpriteFetchStartCycle - 1)
@@ -347,6 +353,7 @@
             switch (cycleRem)
             {
                 case 0b001:
+                    fetchedCoarseX = Registers.CoarseXScroll;
                     fetchedNametableData =
                         this[(ushort)(NametableStartAddress | (Registers.V & 0b000111111111111))];
                     break;
@@ -457,20 +464,21 @@
 
         private void RenderDot()
         {
-            int screenXOffset = Cycle - 1;
+            int screenXPosition = (pendingBackgroundData.XPosition * 8) + Registers.X + ((Cycle - 1) & 0b111);
+
             int bgPaletteIndex = 0;
             int bgPalette = 0;
             if (Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable))
             {
                 // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = 7 - ((Registers.X + screenXOffset) & 0b111);
+                int bgXOffset = 7 - ((Registers.X + screenXPosition) & 0b111);
                 int bgBit = 1 << bgXOffset;
                 bgPaletteIndex = ((pendingBackgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
                     | (((pendingBackgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
 
                 // Get the current 16x16 quadrant from the 32x32 attribute data
                 // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
-                bgPalette = (pendingBackgroundData.AttributeTableData >> (((screenXOffset & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
+                bgPalette = (pendingBackgroundData.AttributeTableData >> (((screenXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
             }
 
             int spritePaletteIndex = 0;
@@ -482,14 +490,14 @@
                 {
                     FetchedSpriteData spriteData = pendingSpriteData[spriteIndex];
 
-                    if (screenXOffset - spriteData.XPosition is < 0 or >= 8)
+                    if (screenXPosition - spriteData.XPosition is < 0 or >= 8)
                     {
                         // Sprite out of horizontal range
                         continue;
                     }
 
                     // Left most (first) pixel is stored in most significant (last) bit
-                    int spriteXOffset = 7 - ((Registers.X + spriteData.XPosition + screenXOffset) & 0b111);
+                    int spriteXOffset = 7 - ((Registers.X + spriteData.XPosition + screenXPosition) & 0b111);
                     if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
                     {
                         // Flip horizontally
@@ -533,7 +541,7 @@
                 paletteIndexToRender = this[PaletteRAMStartAddress];
             }
 
-            OutputPixels[Scanline, screenXOffset] = CurrentPalette[paletteIndexToRender];
+            OutputPixels[Scanline, Cycle - 1] = CurrentPalette[paletteIndexToRender];
         }
     }
 }
