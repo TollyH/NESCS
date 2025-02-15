@@ -4,11 +4,11 @@ using System.Windows.Media;
 namespace NESCS.GUI
 {
     /// <summary>
-    /// Interaction logic for TimingDebugWindow.xaml
+    /// Interaction logic for PerformanceDebugWindow.xaml
     /// </summary>
-    public partial class TimingDebugWindow : Window
+    public partial class PerformanceDebugWindow : Window
     {
-        public TimingDebugWindow()
+        public PerformanceDebugWindow()
         {
             InitializeComponent();
         }
@@ -30,7 +30,7 @@ namespace NESCS.GUI
                 targetHitText.Text = "On Target";
                 targetHitText.Foreground = Brushes.Green;
 
-                targetDetailText.Text = $"{waitTime:N1} ms ({waitTime / system.CurrentClock.FramesPerSecond:P1}) to spare";
+                targetDetailText.Text = $"{waitTime:N1} ms ({waitTime / targetMsPerFrame:P1}) to spare";
                 targetDetailText.Foreground = Brushes.Green;
             }
             else
@@ -40,7 +40,7 @@ namespace NESCS.GUI
                 targetHitText.Text = "Behind Target (Running Slow)";
                 targetHitText.Foreground = Brushes.DarkRed;
 
-                targetDetailText.Text = $"Taking {overTime:N1} ms ({overTime / system.CurrentClock.FramesPerSecond:P1}) too long";
+                targetDetailText.Text = $"Taking {overTime:N1} ms ({overTime / targetMsPerFrame:P1}) too long";
                 targetDetailText.Foreground = Brushes.DarkRed;
             }
 

@@ -32,7 +32,7 @@ namespace NESCS.GUI
 
         private CancellationTokenSource emulationCancellationTokenSource = new();
 
-        private TimingDebugWindow? timingDebugWindow;
+        private PerformanceDebugWindow? performanceDebugWindow;
 
         private static readonly Int32Rect displayRect =
             new(0, 0, PPU.VisibleCyclesPerFrame, PPU.VisibleScanlinesPerFrame);
@@ -141,18 +141,21 @@ namespace NESCS.GUI
             LoadROMFile(dialog.FileName, reset);
         }
 
-        private void OpenTimingDebugWindow()
+        private void OpenPerformanceDebugWindow()
         {
-            if (timingDebugWindow is not null)
+            if (performanceDebugWindow is not null)
             {
                 // Timing debug window is already open, focus it instead.
-                timingDebugWindow.Focus();
+                performanceDebugWindow.Focus();
                 return;
             }
 
-            timingDebugWindow = new TimingDebugWindow();
-            timingDebugWindow.Closed += timingDebugWindow_Closed;
-            timingDebugWindow.Show();
+            performanceDebugWindow = new PerformanceDebugWindow()
+            {
+                Owner = this
+            };
+            performanceDebugWindow.Closed += performanceDebugWindow_Closed;
+            performanceDebugWindow.Show();
         }
 
         private void EmulationThreadStart()
@@ -195,7 +198,7 @@ namespace NESCS.GUI
                     // as this frame complete method is included in the process time.
                     fpsStatusLabel.Content = $"FPS: {1 / nesSystem.LastClockTime.TotalSeconds:N2}";
 
-                    timingDebugWindow?.UpdateDisplays(nesSystem);
+                    performanceDebugWindow?.UpdateDisplays(nesSystem);
                 }, DispatcherPriority.Render, emulationCancellationTokenSource.Token);
             }
             catch (TaskCanceledException) { }
@@ -240,8 +243,8 @@ namespace NESCS.GUI
                     ResetEmulation(true);
                     break;
                 // Debug shortcuts
-                case Key.T when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                    OpenTimingDebugWindow();
+                case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                    OpenPerformanceDebugWindow();
                     break;
                 // Controller input
                 // TODO: Make configurable
@@ -335,9 +338,9 @@ namespace NESCS.GUI
             ResetEmulation(true);
         }
 
-        private void OpenTimingDebugItem_Click(object sender, RoutedEventArgs e)
+        private void OpenPerformanceDebugItem_Click(object sender, RoutedEventArgs e)
         {
-            OpenTimingDebugWindow();
+            OpenPerformanceDebugWindow();
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -345,9 +348,9 @@ namespace NESCS.GUI
             StopEmulation();
         }
 
-        private void timingDebugWindow_Closed(object? sender, EventArgs e)
+        private void performanceDebugWindow_Closed(object? sender, EventArgs e)
         {
-            timingDebugWindow = null;
+            performanceDebugWindow = null;
         }
     }
 }
