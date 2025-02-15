@@ -15,8 +15,8 @@
                 return mappedAddress switch
                 {
                     // Top 3-bits of controller input are open bus
-                    MappedJOY1Address => (byte)((mappedAddress & 0b11100000) | (nesSystem.ControllerOne.ReadClock() ? 1 : 0)),
-                    MappedJOY2Address => (byte)((mappedAddress & 0b11100000) | (nesSystem.ControllerTwo.ReadClock() ? 1 : 0)),
+                    MappedJOY1Address => (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerOne.ReadClock() ? 1 : 0)),
+                    MappedJOY2Address => (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerTwo.ReadClock() ? 1 : 0)),
                     _ => (byte)(mappedAddress >> 8)  // Open bus
                 };
             }
