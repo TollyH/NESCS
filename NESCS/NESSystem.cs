@@ -7,12 +7,27 @@ namespace NESCS
         public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
 
+    public readonly record struct FrameTiming(TimeSpan PpuProcessTime, TimeSpan CpuProcessTime, TimeSpan FrameCompleteCallbackTime, TimeSpan TotalTime);
+
     public class NESSystem
     {
         public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d);
         public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
+
+        /// <summary>
+        /// The amount of time taken to process the last clock tick, including any delay time enforcing the frame rate limit.
+        /// Only updated when using the <see cref="StartClock"/> method to provide clock timing.
+        /// </summary>
+        public TimeSpan LastClockTime { get; private set; }
+
+        /// <summary>
+        /// The amount of time taken to process each component in the last frame, not including any delay time to enforce the frame rate limit.
+        /// If using <see cref="StartClock"/> to provide clock timing,
+        /// <see cref="LastClockTime"/> can be used instead to access the actual rate that frames are being rendered at.
+        /// </summary>
+        public FrameTiming LastFrameProcessTime { get; private set; }
 
         public IMapper InsertedCartridgeMapper { get; set; } = new Mappers.Empty();
 
@@ -54,19 +69,33 @@ namespace NESCS
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                long nextFrame = Stopwatch.GetTimestamp() + CurrentClock.TicksPerFrame;
+                long clockStartTime = Stopwatch.GetTimestamp();
+
+                long nextFrame = clockStartTime + CurrentClock.TicksPerFrame;
 
                 ProcessFrame();
 
                 while (Stopwatch.GetTimestamp() < nextFrame) { }
+
+                LastClockTime = Stopwatch.GetElapsedTime(clockStartTime);
             }
         }
 
         public void ProcessFrame()
         {
+            long frameStartTime = Stopwatch.GetTimestamp();
+
+            TimeSpan ppuTotalTime = TimeSpan.Zero;
+            TimeSpan cpuTotalTime = TimeSpan.Zero;
+
             // Keep cycling both processors until the PPU signals that the frame is complete
-            while (!PpuCore.ProcessNextDot())
+            bool frameComplete = false;
+            while (!frameComplete)
             {
+                long ppuStartTime = Stopwatch.GetTimestamp();
+                frameComplete = PpuCore.ProcessNextDot();
+                ppuTotalTime += Stopwatch.GetElapsedTime(ppuStartTime);
+
                 pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
 
                 int cpuCyclesThisDot = (int)pendingCpuCycles;
@@ -74,11 +103,17 @@ namespace NESCS
 
                 for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
                 {
+                    long cpuStartTime = Stopwatch.GetTimestamp();
                     CpuCore.ExecuteClockCycle();
+                    cpuTotalTime += Stopwatch.GetElapsedTime(cpuStartTime);
                 }
             }
 
+            long callbackStartTime = Stopwatch.GetTimestamp();
             FrameComplete?.Invoke(this);
+            TimeSpan callbackTotalTime = Stopwatch.GetElapsedTime(callbackStartTime);
+
+            LastFrameProcessTime = new FrameTiming(ppuTotalTime, cpuTotalTime, callbackTotalTime, Stopwatch.GetElapsedTime(frameStartTime));
         }
     }
 }

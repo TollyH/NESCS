@@ -1,0 +1,31 @@
+﻿<Window x:Class="NESCS.GUI.TimingDebugWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NESCS.GUI"
+        mc:Ignorable="d"
+        Title="Timing" MinHeight="360" Height="360" MinWidth="500" Width="800" Icon="pack://application:,,,/Resources/MenuIcons/clock.png">
+    <Grid>
+        <TextBlock x:Name="frameRateText" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Rate: 0.0 FPS" FontWeight="Bold" FontSize="24"/>
+        <TextBlock x:Name="frameTimeText" Margin="10,45,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Time: 0.0 ms" FontSize="22"/>
+        <TextBlock x:Name="frameTargetText" Margin="10,80,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Target: 0.0 FPS / 0.0 ms" FontSize="20"/>
+        <TextBlock x:Name="targetHitText" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="On Target" Foreground="Green" FontWeight="Bold" FontSize="24"/>
+        <TextBlock x:Name="targetDetailText" Margin="10,45,10,10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="0.0 ms (0%) to spare" Foreground="Green" FontSize="22"/>
+
+        <TextBlock Margin="10,130,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Time Breakdown:" FontWeight="Bold" FontSize="18"/>
+        <Border VerticalAlignment="Top" Margin="10,165,10,0" BorderBrush="Black" BorderThickness="1">
+            <StackPanel x:Name="barPanel" Orientation="Horizontal" Height="50">
+                <Rectangle x:Name="ppuTimeBar" Fill="#FFCC1B1B" d:Width="50"/>
+                <Rectangle x:Name="cpuTimeBar" Fill="#FF1B1BCC" d:Width="50"/>
+                <Rectangle x:Name="callbackTimeBar" Fill="#FF1BCC1B" d:Width="50"/>
+                <Rectangle x:Name="otherTimeBar" Fill="Gray" d:Width="50"/>
+            </StackPanel>
+        </Border>
+        <TextBlock Margin="10,230,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FFCC1B1B" Text="PPU: "/><Run x:Name="ppuTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,250,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FF1B1BCC" Text="CPU: "/><Run x:Name="cpuTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,270,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FF1BCC1B" Text="Presentation: "/><Run x:Name="callbackTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,290,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Gray" Text="Other: "/><Run x:Name="otherTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,310,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Black" Text="Total: "/><Run x:Name="totalTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+    </Grid>
+</Window>

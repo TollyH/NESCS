@@ -11,6 +11,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Menu Grid.Row="0" Height="20">
             <MenuItem Header="_System">
@@ -71,7 +72,17 @@
                     </MenuItem>
                 </MenuItem>
             </MenuItem>
+            <MenuItem Header="_Debug">
+                <MenuItem Header="_Timing" InputGestureText="Ctrl+Alt+T" Click="OpenTimingDebugItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/clock.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
         </Menu>
         <Image x:Name="nesDisplay" Grid.Row="1" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+        <StatusBar Grid.Row="2">
+            <StatusBarItem x:Name="fpsStatusLabel" Content="FPS: Paused" HorizontalAlignment="Right"/>
+        </StatusBar>
     </Grid>
 </Window>

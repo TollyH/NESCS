@@ -32,6 +32,8 @@ namespace NESCS.GUI
 
         private CancellationTokenSource emulationCancellationTokenSource = new();
 
+        private TimingDebugWindow? timingDebugWindow;
+
         private static readonly Int32Rect displayRect =
             new(0, 0, PPU.VisibleCyclesPerFrame, PPU.VisibleScanlinesPerFrame);
 
@@ -80,6 +82,8 @@ namespace NESCS.GUI
             while (EmulationRunning) { }
 
             emulationCancellationTokenSource = new CancellationTokenSource();
+
+            fpsStatusLabel.Content = "FPS: Paused";
         }
 
         public void ResetEmulation(bool powerCycle)
@@ -137,12 +141,44 @@ namespace NESCS.GUI
             LoadROMFile(dialog.FileName, reset);
         }
 
+        private void OpenTimingDebugWindow()
+        {
+            if (timingDebugWindow is not null)
+            {
+                // Timing debug window is already open, focus it instead.
+                timingDebugWindow.Focus();
+                return;
+            }
+
+            timingDebugWindow = new TimingDebugWindow();
+            timingDebugWindow.Closed += timingDebugWindow_Closed;
+            timingDebugWindow.Show();
+        }
+
         private void EmulationThreadStart()
         {
             EmulatedNesSystem.StartClock(emulationCancellationTokenSource.Token);
         }
 
-        private unsafe void EmulatedNesSystem_FrameComplete(NESSystem nesSystem)
+        private unsafe void RenderDisplay(Color[,] pixels)
+        {
+            nesDisplayBitmap.Lock();
+
+            Color* backBuffer = (Color*)nesDisplayBitmap.BackBuffer;
+            fixed (Color* outputPixels = pixels)
+            {
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    backBuffer[i] = outputPixels[i];
+                }
+            }
+
+            nesDisplayBitmap.AddDirtyRect(displayRect);
+
+            nesDisplayBitmap.Unlock();
+        }
+
+        private void EmulatedNesSystem_FrameComplete(NESSystem nesSystem)
         {
             if (emulationCancellationTokenSource.IsCancellationRequested)
             {
@@ -153,20 +189,13 @@ namespace NESCS.GUI
             {
                 Dispatcher.Invoke(() =>
                 {
-                    nesDisplayBitmap.Lock();
+                    RenderDisplay(nesSystem.PpuCore.OutputPixels);
 
-                    Color* backBuffer = (Color*)nesDisplayBitmap.BackBuffer;
-                    fixed (Color* outputPixels = nesSystem.PpuCore.OutputPixels)
-                    {
-                        for (int i = 0; i < nesSystem.PpuCore.OutputPixels.Length; i++)
-                        {
-                            backBuffer[i] = outputPixels[i];
-                        }
-                    }
+                    // This will be the frame time of the last frame, not this one,
+                    // as this frame complete method is included in the process time.
+                    fpsStatusLabel.Content = $"FPS: {1 / nesSystem.LastClockTime.TotalSeconds:N2}";
 
-                    nesDisplayBitmap.AddDirtyRect(displayRect);
-
-                    nesDisplayBitmap.Unlock();
+                    timingDebugWindow?.UpdateDisplays(nesSystem);
                 }, DispatcherPriority.Render, emulationCancellationTokenSource.Token);
             }
             catch (TaskCanceledException) { }
@@ -209,6 +238,10 @@ namespace NESCS.GUI
                     break;
                 case Key.R when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
                     ResetEmulation(true);
+                    break;
+                // Debug shortcuts
+                case Key.T when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                    OpenTimingDebugWindow();
                     break;
                 // Controller input
                 // TODO: Make configurable
@@ -302,9 +335,19 @@ namespace NESCS.GUI
             ResetEmulation(true);
         }
 
+        private void OpenTimingDebugItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenTimingDebugWindow();
+        }
+
         private void Window_Closed(object sender, EventArgs e)
         {
             StopEmulation();
+        }
+
+        private void timingDebugWindow_Closed(object? sender, EventArgs e)
+        {
+            timingDebugWindow = null;
         }
     }
 }
