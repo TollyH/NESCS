@@ -64,12 +64,12 @@
         /// </summary>
         public Color[,] OutputPixels { get; }
 
-        public bool IsRenderingEnabled => Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable)
-            || Registers.PPUMASK.HasFlag(PPUMASKFlags.SpriteEnable);
+        public bool IsRenderingEnabled => (Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0
+            || (Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0;
 
         public bool IsCurrentlyRendering => Scanline < VisibleScanlinesPerFrame && IsRenderingEnabled;
 
-        public int SpriteHeight => Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteHeight) ? 16 : 8;
+        public int SpriteHeight => (Registers.PPUCTRL & PPUCTRLFlags.SpriteHeight) != 0 ? 16 : 8;
 
         // Stores whether the vertical blanking NMI was enabled on the previous frame.
         // Used to trigger an NMI if the flag is toggled on midway through the blanking interval.
@@ -202,14 +202,14 @@
 
         private void RunDotLogic()
         {
-            if (!wasNMIEnabledPreviously && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable)
+            if (!wasNMIEnabledPreviously && (Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0
                 && Scanline > VisibleScanlinesPerFrame)
             {
                 // Turning on vertical blanking interrupts midway through the blanking interval will immediately fire the NMI.
                 nesSystem.CpuCore.NonMaskableInterrupt();
             }
 
-            wasNMIEnabledPreviously = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.VerticalBlankNmiEnable);
+            wasNMIEnabledPreviously = (Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0;
 
             switch (Scanline)
             {
@@ -367,7 +367,7 @@
                 case 0b101:
                 case 0b111:
                     ushort patternAddress = (ushort)((fetchedNametableData << 4) | Registers.FineYScroll);
-                    if (Registers.PPUCTRL.HasFlag(PPUCTRLFlags.BackgroundTileSelect))
+                    if ((Registers.PPUCTRL & PPUCTRLFlags.BackgroundTileSelect) != 0)
                     {
                         patternAddress |= 0b1000000000000;
                     }
@@ -390,7 +390,7 @@
             int cycleRem = Cycle & 0b111;
             if (cycleRem is 0b110 or 0b000 && fetchingSpriteIndex < spritesOnScanline)
             {
-                bool tallSprites = Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteHeight);
+                bool tallSprites = (Registers.PPUCTRL & PPUCTRLFlags.SpriteHeight) != 0;
 
                 int startIndex = fetchingSpriteIndex * SpriteDataSize;
                 byte yCoord = secondaryOAM[startIndex];
@@ -416,7 +416,7 @@
                 // 8x16 sprites instead use the least significant bit of the tile index as a bank selection and ignore PPUCTRL.
                 ushort patternAddress = (ushort)((tallSprites ? ((tileIndexData & 0b1111110) << 3) : (tileIndexData << 4)) | (yDiff & 0b111));
                 if ((tallSprites && (tileIndexData & 1) != 0)
-                    || (!tallSprites && Registers.PPUCTRL.HasFlag(PPUCTRLFlags.SpriteTileSelect)))
+                    || (!tallSprites && (Registers.PPUCTRL & PPUCTRLFlags.SpriteTileSelect) != 0))
                 {
                     patternAddress |= 0b1000000000000;
                 }
@@ -468,7 +468,7 @@
 
             int bgPaletteIndex = 0;
             int bgPalette = 0;
-            if (Registers.PPUMASK.HasFlag(PPUMASKFlags.BackgroundEnable))
+            if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0)
             {
                 // Left most (first) pixel is stored in most significant (last) bit
                 int bgXOffset = 7 - ((Registers.X + screenXPosition) & 0b111);
@@ -484,7 +484,7 @@
             int spritePaletteIndex = 0;
             bool spriteBehindBackground = false;
             int spritePalette = 0;
-            if (Registers.PPUMASK.HasFlag(PPUMASKFlags.SpriteEnable))
+            if ((Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0)
             {
                 for (int spriteIndex = 0; spriteIndex < pendingSpriteCount; spriteIndex++)
                 {

@@ -295,7 +295,7 @@
             else
             {
                 // IncrementMode being set means writes are ordered vertically, being unset means writes are ordered horizontally
-                V += (ushort)(PPUCTRL.HasFlag(PPUCTRLFlags.IncrementMode) ? 32 : 1);
+                V += (ushort)((PPUCTRL & PPUCTRLFlags.IncrementMode) != 0 ? 32 : 1);
             }
         }
     }
