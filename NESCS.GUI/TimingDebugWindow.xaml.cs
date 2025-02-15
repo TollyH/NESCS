@@ -63,6 +63,7 @@ namespace NESCS.GUI
             cpuTimeText.Text = $"{system.LastFrameProcessTime.CpuProcessTime.TotalMilliseconds:N1} ms ({cpuProportion:P1})";
             callbackTimeText.Text = $"{system.LastFrameProcessTime.FrameCompleteCallbackTime.TotalMilliseconds:N1} ms ({callbackProportion:P1})";
             otherTimeText.Text = $"{otherTime.TotalMilliseconds:N1} ms ({otherProportion:P1})";
+            totalTimeText.Text = $"{system.LastFrameProcessTime.TotalTime.TotalMilliseconds:N1} ms ({system.LastFrameProcessTime.TotalTime / system.LastClockTime:P1})";
         }
     }
 }
