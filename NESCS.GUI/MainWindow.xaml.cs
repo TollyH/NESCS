@@ -263,10 +263,10 @@ namespace NESCS.GUI
                 case Key.I:
                     controller.HeldButtons |= Controllers.StandardControllerButtons.Start;
                     break;
-                case Key.J:
+                case Key.K:
                     controller.HeldButtons |= Controllers.StandardControllerButtons.A;
                     break;
-                case Key.K:
+                case Key.J:
                     controller.HeldButtons |= Controllers.StandardControllerButtons.B;
                     break;
             }
@@ -296,10 +296,10 @@ namespace NESCS.GUI
                 case Key.I:
                     controller.HeldButtons &= ~Controllers.StandardControllerButtons.Start;
                     break;
-                case Key.J:
+                case Key.K:
                     controller.HeldButtons &= ~Controllers.StandardControllerButtons.A;
                     break;
-                case Key.K:
+                case Key.J:
                     controller.HeldButtons &= ~Controllers.StandardControllerButtons.B;
                     break;
             }
