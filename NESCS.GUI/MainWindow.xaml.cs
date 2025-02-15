@@ -100,6 +100,16 @@ namespace NESCS.GUI
             }
         }
 
+        public void FrameStepEmulation()
+        {
+            if (EmulationRunning)
+            {
+                return;
+            }
+
+            EmulatedNesSystem.ProcessFrame();
+        }
+
         public void SetDisplayScale(double scale)
         {
             nesDisplay.Width = scale * PPU.VisibleCyclesPerFrame;
@@ -242,6 +252,9 @@ namespace NESCS.GUI
                 case Key.R when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
                     ResetEmulation(true);
                     break;
+                case Key.OemPeriod when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
+                    FrameStepEmulation();
+                    break;
                 // Debug shortcuts
                 case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
                     OpenPerformanceDebugWindow();
@@ -341,6 +354,11 @@ namespace NESCS.GUI
         private void OpenPerformanceDebugItem_Click(object sender, RoutedEventArgs e)
         {
             OpenPerformanceDebugWindow();
+        }
+
+        private void FrameStepItem_Click(object sender, RoutedEventArgs e)
+        {
+            FrameStepEmulation();
         }
 
         private void Window_Closed(object sender, EventArgs e)

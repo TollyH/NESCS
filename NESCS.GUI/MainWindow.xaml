@@ -36,6 +36,11 @@
                         <Image Source="pack://application:,,,/Resources/MenuIcons/control-pause.png"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="Step _Frame" InputGestureText="Ctrl+." Click="FrameStepItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/control-stop.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
                 <Separator/>
                 <MenuItem Header="_Soft Reset (Reset Button)" InputGestureText="Ctrl+R" Click="SoftResetItem_Click">
                     <MenuItem.Icon>
