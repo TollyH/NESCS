@@ -49,14 +49,14 @@
         public const ushort MappedPPUADDRAddress = 0x2006;
         public const ushort MappedPPUDATAAddress = 0x2007;
 
-        private const byte mirroredPPUCTRLAddress = 0x00;
-        private const byte mirroredPPUMASKAddress = 0x01;
-        private const byte mirroredPPUSTATUSAddress = 0x02;
-        private const byte mirroredOAMADDRAddress = 0x03;
-        private const byte mirroredOAMDATAAddress = 0x04;
-        private const byte mirroredPPUSCROLLAddress = 0x05;
-        private const byte mirroredPPUADDRAddress = 0x06;
-        private const byte mirroredPPUDATAAddress = 0x07;
+        private const byte mirroredPPUCTRLAddress = MappedPPUCTRLAddress & 0b111;
+        private const byte mirroredPPUMASKAddress = MappedPPUMASKAddress & 0b111;
+        private const byte mirroredPPUSTATUSAddress = MappedPPUSTATUSAddress & 0b111;
+        private const byte mirroredOAMADDRAddress = MappedOAMADDRAddress & 0b111;
+        private const byte mirroredOAMDATAAddress = MappedOAMDATAAddress & 0b111;
+        private const byte mirroredPPUSCROLLAddress = MappedPPUSCROLLAddress & 0b111;
+        private const byte mirroredPPUADDRAddress = MappedPPUADDRAddress & 0b111;
+        private const byte mirroredPPUDATAAddress = MappedPPUDATAAddress & 0b111;
 
         /// <summary>
         /// Mapped to 0x2000 - Miscellaneous settings

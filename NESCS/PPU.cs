@@ -30,6 +30,10 @@
 
         public const byte SpriteDataSize = 4;
 
+        // The proportion of the original color value that non-emphasised channels
+        // will be dimmed by when using the color emphasis bits in PPUMASK.
+        public const double ColorEmphasisFactor = 0.816328;
+
         public readonly PPURegisters Registers;
 
         private readonly NESSystem nesSystem;
@@ -471,7 +475,8 @@
 
             int bgPaletteIndex = 0;
             int bgPalette = 0;
-            if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0)
+            if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0 &&
+                (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.BackgroundLeftColumnEnable) != 0))
             {
                 // If fine X scroll has moved into the next tile, use that data instead
                 FetchedBackgroundData backgroundData = (screenXPosition & 0b1000) != (tileXPosition & 0b1000)
@@ -492,7 +497,8 @@
             int spritePaletteIndex = 0;
             bool spriteBehindBackground = false;
             int spritePalette = 0;
-            if ((Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0)
+            if ((Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0 &&
+                (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.SpriteLeftColumnEnable) != 0))
             {
                 for (int spriteIndex = 0; spriteIndex < pendingSpriteCount; spriteIndex++)
                 {
@@ -549,7 +555,39 @@
                 paletteIndexToRender = this[PaletteRAMStartAddress];
             }
 
-            OutputPixels[Scanline, Cycle - 1] = CurrentPalette[paletteIndexToRender];
+            if ((Registers.PPUMASK & PPUMASKFlags.Greyscale) != 0)
+            {
+                // Redirects all color lookups to the first palette column.
+                // If this column is not all grey, a greyscale effect won't actually be achieved.
+                paletteIndexToRender &= 0x30;
+            }
+
+            Color selectedColor = CurrentPalette[paletteIndexToRender];
+
+            // Color emphasis is achieved by dimming the non-emphasised channels
+            if ((Registers.PPUMASK & PPUMASKFlags.ColorEmphasisRed) != 0)
+            {
+                selectedColor = new Color(
+                    selectedColor.R,
+                    (byte)(selectedColor.G * ColorEmphasisFactor),
+                    (byte)(selectedColor.B * ColorEmphasisFactor));
+            }
+            if ((Registers.PPUMASK & PPUMASKFlags.ColorEmphasisGreen) != 0)
+            {
+                selectedColor = new Color(
+                    (byte)(selectedColor.R * ColorEmphasisFactor),
+                    selectedColor.G,
+                    (byte)(selectedColor.B * ColorEmphasisFactor));
+            }
+            if ((Registers.PPUMASK & PPUMASKFlags.ColorEmphasisBlue) != 0)
+            {
+                selectedColor = new Color(
+                    (byte)(selectedColor.R * ColorEmphasisFactor),
+                    (byte)(selectedColor.G * ColorEmphasisFactor),
+                    selectedColor.B);
+            }
+
+            OutputPixels[Scanline, Cycle - 1] = selectedColor;
         }
     }
 }
