@@ -2,7 +2,7 @@
 {
     public class PPU
     {
-        private readonly record struct FetchedBackgroundData(byte XPosition, byte AttributeTableData, byte PatternTableDataLow, byte PatternTableDataHigh);
+        private readonly record struct FetchedBackgroundData(byte CoarseXScroll, byte AttributeTableData, byte PatternTableDataLow, byte PatternTableDataHigh);
         private readonly record struct FetchedSpriteData(byte XPosition, byte SpriteAttributeData, byte PatternTableDataLow, byte PatternTableDataHigh);
 
         public const int NtscScanlinesPerFrame = 262;
@@ -88,9 +88,10 @@
         private int spritesOnScanline = 0;
 
         // Background data is fetched two tiles in advance.
-        // Once data is fetch fetched, it takes another fetch cycle before it is pending to be rendered.
-        private FetchedBackgroundData fetchedBackgroundData = new();
-        private FetchedBackgroundData pendingBackgroundData = new();
+        // Once data is fetch fetched, it takes another fetch cycle before it is usually rendered,
+        // however scrolling on the X axis may mean that data from the next tile is accessed earlier
+        // (before the second fetch cycle has finished).
+        private FetchedBackgroundData[] fetchedBackgroundData = new FetchedBackgroundData[2];
         private int pendingSpriteCount = 0;
         private readonly FetchedSpriteData[] pendingSpriteData = new FetchedSpriteData[MaximumSpritesPerScanline];
 
@@ -286,8 +287,8 @@
                                     break;
                                 case 1:
                                     // First dot of tile will be rendered this cycle, store background data needed for rendering
-                                    pendingBackgroundData = fetchedBackgroundData;
-                                    fetchedBackgroundData = new FetchedBackgroundData(
+                                    fetchedBackgroundData[0] = fetchedBackgroundData[1];
+                                    fetchedBackgroundData[1] = new FetchedBackgroundData(
                                         fetchedCoarseX, fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
                                     break;
                             }
@@ -465,21 +466,27 @@
 
         private void RenderDot()
         {
-            int screenXPosition = (pendingBackgroundData.XPosition * 8) + Registers.X + ((Cycle - 1) & 0b111);
+            int tileXPosition = fetchedBackgroundData[0].CoarseXScroll * 8;
+            int screenXPosition = tileXPosition + Registers.X + ((Cycle - 1) & 0b111);
 
             int bgPaletteIndex = 0;
             int bgPalette = 0;
             if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0)
             {
+                // If fine X scroll has moved into the next tile, use that data instead
+                FetchedBackgroundData backgroundData = (screenXPosition & 0b1000) != (tileXPosition & 0b1000)
+                    ? fetchedBackgroundData[1]
+                    : fetchedBackgroundData[0];
+
                 // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = 7 - ((Registers.X + screenXPosition) & 0b111);
+                int bgXOffset = 7 - (screenXPosition & 0b111);
                 int bgBit = 1 << bgXOffset;
-                bgPaletteIndex = ((pendingBackgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
-                    | (((pendingBackgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
+                bgPaletteIndex = ((backgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
+                    | (((backgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
 
                 // Get the current 16x16 quadrant from the 32x32 attribute data
                 // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
-                bgPalette = (pendingBackgroundData.AttributeTableData >> (((screenXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
+                bgPalette = (backgroundData.AttributeTableData >> (((screenXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
             }
 
             int spritePaletteIndex = 0;
