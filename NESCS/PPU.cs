@@ -339,7 +339,10 @@
                     if (Cycle == 1)
                     {
                         Registers.PPUSTATUS |= PPUSTATUSFlags.VerticalBlank;
-                        nesSystem.CpuCore.NonMaskableInterrupt();
+                        if ((Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0)
+                        {
+                            nesSystem.CpuCore.NonMaskableInterrupt();
+                        }
                     }
                     break;
                 // Vertical blanking interval

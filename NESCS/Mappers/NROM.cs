@@ -42,7 +42,7 @@
                     }
                     break;
                 case <= 0xFFFF:
-                    PrgRom[address % PrgRom.Length] = value;
+                    // ROM is read-only
                     break;
             }
         }

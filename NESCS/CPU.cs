@@ -151,7 +151,7 @@
             {
                 Registers.P |= CPUStatusFlags.InterruptDisable;
 
-                InterruptStatePush();
+                Registers.S -= 3;
             }
         }
 
