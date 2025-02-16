@@ -487,7 +487,7 @@
                     : fetchedBackgroundData[0];
 
                 // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = 7 - (screenXPosition & 0b111);
+                int bgXOffset = ~screenXPosition & 0b111;
                 int bgBit = 1 << bgXOffset;
                 bgPaletteIndex = ((backgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
                     | (((backgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
@@ -514,7 +514,7 @@
                     }
 
                     // Left most (first) pixel is stored in most significant (last) bit
-                    int spriteXOffset = 7 - ((Registers.X + screenXPosition - spriteData.XPosition) & 0b111);
+                    int spriteXOffset = ~(screenXPosition - spriteData.XPosition) & 0b111;
                     if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
                     {
                         // Flip horizontally
