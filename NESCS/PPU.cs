@@ -498,7 +498,7 @@
                     }
 
                     // Left most (first) pixel is stored in most significant (last) bit
-                    int spriteXOffset = 7 - ((Registers.X + spriteData.XPosition + screenXPosition) & 0b111);
+                    int spriteXOffset = 7 - ((Registers.X + screenXPosition - spriteData.XPosition) & 0b111);
                     if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
                     {
                         // Flip horizontally
