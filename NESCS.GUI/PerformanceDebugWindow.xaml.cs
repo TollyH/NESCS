@@ -15,6 +15,12 @@ namespace NESCS.GUI
 
         public void UpdateDisplays(NESSystem system)
         {
+            if (system.LastClockTime == TimeSpan.Zero)
+            {
+                // Clock hasn't run yet - don't update to avoid invalid values
+                return;
+            }
+
             double targetMsPerFrame = 1000 / system.CurrentClock.FramesPerSecond;
 
             frameRateText.Text = $"Frame Rate: {1 / system.LastClockTime.TotalSeconds:N1} FPS";
