@@ -37,6 +37,8 @@
         public readonly byte[] PaletteRAM = new byte[0x20];
         public readonly byte[] ObjectAttributeMemory = new byte[0x100];
 
+        public readonly byte[] SecondaryOAM = new byte[MaximumSpritesPerScanline * SpriteDataSize];
+
         public Color[] CurrentPalette { get; } = new Color[0x40]
         {
             new(0x626262), new(0x002E98), new(0x0C11C2), new(0x3B00C2), new(0x650098), new(0x7D004E), new(0x7D0000), new(0x651900),
@@ -83,7 +85,6 @@
 
         private int fetchingSpriteIndex = 0;
 
-        private readonly byte[] secondaryOAM = new byte[MaximumSpritesPerScanline * SpriteDataSize];
         private int spritesOnScanline = 0;
 
         // Background data is fetched two tiles in advance.
@@ -264,7 +265,7 @@
                                 // Secondary OAM clear
                                 if (Cycle % 2 == 1)
                                 {
-                                    secondaryOAM[(Cycle - 1) / 2] = 0xFF;
+                                    SecondaryOAM[(Cycle - 1) / 2] = 0xFF;
                                 }
                             }
                             else if (Cycle < SpriteFetchStartCycle)
@@ -317,7 +318,7 @@
 
                                 // All sprite data has been fetched, store it and increment to next
                                 pendingSpriteData[fetchingSpriteIndex] = new FetchedSpriteData(
-                                    secondaryOAM[startIndex + 3], secondaryOAM[startIndex + 2], fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
+                                    SecondaryOAM[startIndex + 3], SecondaryOAM[startIndex + 2], fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
 
                                 fetchingSpriteIndex++;
                             }
@@ -393,9 +394,9 @@
                 bool tallSprites = (Registers.PPUCTRL & PPUCTRLFlags.SpriteHeight) != 0;
 
                 int startIndex = fetchingSpriteIndex * SpriteDataSize;
-                byte yCoord = secondaryOAM[startIndex];
-                byte tileIndexData = secondaryOAM[startIndex + 1];
-                byte attributes = secondaryOAM[startIndex + 2];
+                byte yCoord = SecondaryOAM[startIndex];
+                byte tileIndexData = SecondaryOAM[startIndex + 1];
+                byte attributes = SecondaryOAM[startIndex + 2];
                 int yDiff = (Registers.CoarseYScroll * 8 + Registers.FineYScroll - yCoord - 1) & 0b1111;
                 if ((attributes & 0b10000000) != 0)
                 {
@@ -455,7 +456,7 @@
                     int startIndex = spritesOnScanline * SpriteDataSize;
                     for (int i = 0; i < SpriteDataSize; i++)
                     {
-                        secondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR++];
+                        SecondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR++];
                     }
                     spritesOnScanline++;
                 }
