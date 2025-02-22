@@ -420,19 +420,20 @@
                         yDiff ^= 0b1000;
                     }
                 }
-                if ((yDiff & 0b1000) != 0)
-                {
-                    // Second tile of 8x16 sprite
-                    tileIndexData += 0b10;
-                }
 
                 // 8x8 sprites use the sprite's entire tile index and use PPUCTRL to select the tile bank.
                 // 8x16 sprites instead use the least significant bit of the tile index as a bank selection and ignore PPUCTRL.
-                ushort patternAddress = (ushort)((tallSprites ? ((tileIndexData & 0b1111110) << 3) : (tileIndexData << 4)) | (yDiff & 0b111));
+                ushort patternAddress = (ushort)(((tallSprites ? (tileIndexData & 0b11111110) : tileIndexData) << 4) | (yDiff & 0b111));
                 if ((tallSprites && (tileIndexData & 1) != 0)
                     || (!tallSprites && (Registers.PPUCTRL & PPUCTRLFlags.SpriteTileSelect) != 0))
                 {
                     patternAddress |= 0b1000000000000;
+                }
+
+                if ((yDiff & 0b1000) != 0)
+                {
+                    // Second tile of 8x16 sprite
+                    patternAddress |= 0b10000;
                 }
 
                 if (cycleRem == 0)
