@@ -399,6 +399,40 @@
             }
         }
 
+        private void RunSpriteEvaluationDotLogic()
+        {
+            if (Cycle % 3 == 2)
+            {
+                byte yCoord = ObjectAttributeMemory[Registers.OAMADDR];
+                int yDiff = Scanline - yCoord;
+                if (yDiff < 0 || yDiff >= SpriteHeight)
+                {
+                    // Sprite is not on this scanline - skip it
+                    Registers.OAMADDR += SpriteDataSize;
+                    return;
+                }
+
+                if (spritesOnScanline >= MaximumSpritesPerScanline)
+                {
+                    Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteOverflow;
+                }
+                else
+                {
+                    if (Registers.OAMADDR == 0)
+                    {
+                        fetchedSpriteZero = true;
+                    }
+
+                    int startIndex = spritesOnScanline * SpriteDataSize;
+                    for (int i = 0; i < SpriteDataSize; i++)
+                    {
+                        SecondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR++];
+                    }
+                    spritesOnScanline++;
+                }
+            }
+        }
+
         private void RunSpriteFetchDotLogic()
         {
             int cycleRem = Cycle & 0b111;
@@ -410,7 +444,7 @@
                 byte yCoord = SecondaryOAM[startIndex];
                 byte tileIndexData = SecondaryOAM[startIndex + 1];
                 byte attributes = SecondaryOAM[startIndex + 2];
-                int yDiff = (Registers.CoarseYScroll * 8 + Registers.FineYScroll - yCoord - 1) & 0b1111;
+                int yDiff = (Scanline - yCoord) & 0b1111;
                 if ((attributes & 0b10000000) != 0)
                 {
                     // Vertical flip
@@ -448,44 +482,12 @@
             }
         }
 
-        private void RunSpriteEvaluationDotLogic()
-        {
-            if (Cycle % 3 == 2)
-            {
-                byte yCoord = ObjectAttributeMemory[Registers.OAMADDR];
-                int yDiff = Registers.CoarseYScroll * 8 + Registers.FineYScroll - yCoord;
-                if (yDiff < 0 || yDiff >= SpriteHeight)
-                {
-                    // Sprite is not on this scanline - skip it
-                    Registers.OAMADDR += SpriteDataSize;
-                    return;
-                }
-
-                if (spritesOnScanline >= MaximumSpritesPerScanline)
-                {
-                    Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteOverflow;
-                }
-                else
-                {
-                    if (Registers.OAMADDR == 0)
-                    {
-                        fetchedSpriteZero = true;
-                    }
-
-                    int startIndex = spritesOnScanline * SpriteDataSize;
-                    for (int i = 0; i < SpriteDataSize; i++)
-                    {
-                        SecondaryOAM[startIndex + i] = ObjectAttributeMemory[Registers.OAMADDR++];
-                    }
-                    spritesOnScanline++;
-                }
-            }
-        }
-
         private void RenderDot()
         {
-            int tileXPosition = fetchedBackgroundData[0].CoarseXScroll * 8;
-            int screenXPosition = tileXPosition + Registers.X + ((Cycle - 1) & 0b111);
+            int screenXPosition = Cycle - 1;
+
+            int coarseTileXPosition = fetchedBackgroundData[0].CoarseXScroll * 8;
+            int fineTileXPosition = coarseTileXPosition + Registers.X + (screenXPosition & 0b111);
 
             int bgPaletteIndex = 0;
             int bgPalette = 0;
@@ -493,19 +495,19 @@
                 (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.BackgroundLeftColumnEnable) != 0))
             {
                 // If fine X scroll has moved into the next tile, use that data instead
-                FetchedBackgroundData backgroundData = (screenXPosition & 0b1000) != (tileXPosition & 0b1000)
+                FetchedBackgroundData backgroundData = (fineTileXPosition & 0b1000) != (coarseTileXPosition & 0b1000)
                     ? fetchedBackgroundData[1]
                     : fetchedBackgroundData[0];
 
                 // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = ~screenXPosition & 0b111;
+                int bgXOffset = ~fineTileXPosition & 0b111;
                 int bgBit = 1 << bgXOffset;
                 bgPaletteIndex = ((backgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
                     | (((backgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
 
                 // Get the current 16x16 quadrant from the 32x32 attribute data
                 // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
-                bgPalette = (backgroundData.AttributeTableData >> (((screenXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
+                bgPalette = (backgroundData.AttributeTableData >> (((fineTileXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
             }
 
             int spritePaletteIndex = 0;
