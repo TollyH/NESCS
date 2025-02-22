@@ -220,11 +220,12 @@
                 if (nmiQueued)
                 {
                     nmiQueued = false;
+                    // NMI overrides IRQ
+                    irqQueued = false;
 
-                    StartInterruptHandler(NonMaskableInterruptVector);
+                    StartInterruptHandler(NonMaskableInterruptVector, false);
                 }
-
-                if (irqQueued)
+                else if (irqQueued)
                 {
                     irqQueued = false;
 
@@ -238,7 +239,7 @@
                         return;
                     }
 
-                    StartInterruptHandler(InterruptRequestVector);
+                    StartInterruptHandler(InterruptRequestVector, false);
                 }
             }
         }
@@ -661,7 +662,10 @@
                             if (addressingModeCode == 0b000)
                             {
                                 IncrementPCPastOperand(addressingMode);
-                                StartInterruptHandler(InterruptRequestVector);
+                                // BRK skips the byte after the opcode,
+                                // effectively making it a 2-byte instruction with an unused operand
+                                Registers.PC++;
+                                StartInterruptHandler(InterruptRequestVector, true);
                                 cancelPCIncrement = true;
                             }
                             break;
@@ -1134,17 +1138,19 @@
             }
         }
 
-        private void StartInterruptHandler(ushort vector)
+        private void StartInterruptHandler(ushort vector, bool isBreak)
         {
-            InterruptStatePush();
+            InterruptStatePush(isBreak);
 
             Registers.PC = systemMemory.ReadTwoBytes(vector);
         }
 
-        private void InterruptStatePush()
+        private void InterruptStatePush(bool isBreak)
         {
             PushStackTwoByte(Registers.PC);
-            PushStack((byte)(Registers.P | CPUStatusFlags.Break));
+            PushStack((byte)(isBreak
+                ? Registers.P | CPUStatusFlags.Break
+                : Registers.P));
             Registers.P |= CPUStatusFlags.InterruptDisable;
         }
 
