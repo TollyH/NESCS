@@ -124,6 +124,12 @@ namespace NESCS
                     PrgRom.CopyTo(nromMapper.PrgRom, 0);
                     ChrRom.CopyTo(nromMapper.ChrRom, 0);
                     return nromMapper;
+                // MMC1
+                case 1:
+                    MMC1 mmc1Mapper = new(nesSystem, PrgRom.Length, ChrRom.Length, PrgRamPresent);
+                    PrgRom.CopyTo(mmc1Mapper.PrgRom, 0);
+                    ChrRom.CopyTo(mmc1Mapper.ChrRom, 0);
+                    return mmc1Mapper;
                 default:
                     throw new NotSupportedException($"Mapper with ID {MapperNumber} is currently unsupported.");
             }

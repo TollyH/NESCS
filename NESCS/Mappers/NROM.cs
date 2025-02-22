@@ -2,13 +2,6 @@
 {
     public class NROM(NESSystem nesSystem, Mirroring nametableMirroring, bool useLargerPrgRom, bool useLargerPrgRam, bool prgRamPresent) : IMapper
     {
-        public string Name => nameof(NROM);
-        public string[] OtherNames { get; } = new string[] { "iNES Mapper 000", "RROM", "SROM", "RTROM", "STROM", "HROM" };
-        public string Description => "Used by many Nintendo games, among others. Is very basic, with no mapping/bank-switching capability." +
-            " Supports 16/32 KiB of PRG ROM, and 8 KiB of CHR ROM. Nametables use the NES built-in 2KB CIRAM/VRAM." +
-            " Can mirror nametables either horizontally or vertically, but this is fixed via a solder pad and cannot be changed." +
-            " Can support 2/4 KiB of PRG RAM for Family Basic.";
-
         public Mirroring NametableMirroring => nametableMirroring;
 
         public byte[] PrgRom { get; } = new byte[useLargerPrgRom ? 0x8000 : 0x4000];
@@ -88,7 +81,7 @@
                     <= 0xFFF => address - 0x800,
                     _ => throw new ArgumentException("Invalid nametable address")
                 },
-                _ => throw new ArgumentException("Invalid mirroring type")
+                _ => throw new ArgumentException("Invalid mirroring type, must be either Horizontal or Vertical.")
             };
         }
     }

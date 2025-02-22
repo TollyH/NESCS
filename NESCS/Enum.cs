@@ -3,6 +3,8 @@
     public enum Mirroring
     {
         Horizontal,
-        Vertical
+        Vertical,
+        SingleLower,
+        SingleUpper
     }
 }
