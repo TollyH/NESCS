@@ -91,6 +91,9 @@
 
         private int spritesOnScanline = 0;
 
+        private bool fetchedSpriteZero = false;
+        private bool firstSpriteIsSpriteZero = false;
+
         // Background data is fetched two tiles in advance.
         // Once data is fetch fetched, it takes another fetch cycle before it is usually rendered,
         // however scrolling on the X axis may mean that data from the next tile is accessed earlier
@@ -227,6 +230,8 @@
                         // Reset per-scanline internal state specific to this emulator here
                         pendingSpriteCount = spritesOnScanline;
                         spritesOnScanline = 0;
+                        firstSpriteIsSpriteZero = fetchedSpriteZero;
+                        fetchedSpriteZero = false;
                         fetchingSpriteIndex = 0;
                         return;
                     }
@@ -461,6 +466,11 @@
                 }
                 else
                 {
+                    if (Registers.OAMADDR == 0)
+                    {
+                        fetchedSpriteZero = true;
+                    }
+
                     int startIndex = spritesOnScanline * SpriteDataSize;
                     for (int i = 0; i < SpriteDataSize; i++)
                     {
@@ -526,7 +536,7 @@
 
                     if (spritePaletteIndex != 0)
                     {
-                        if (spriteIndex == 0 && bgPaletteIndex != 0
+                        if (spriteIndex == 0 && firstSpriteIsSpriteZero && bgPaletteIndex != 0
                             && Cycle is >= SpriteZeroHitStartCycle and <= SpriteZeroHitEndCycle)
                         {
                             Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteZeroHit;
