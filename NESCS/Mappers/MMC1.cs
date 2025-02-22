@@ -182,35 +182,32 @@
 
         private int GetBankedPrgRomAddress(ushort address)
         {
-            bool upperBank = address >= 0xC000;
-            address &= 0b0011111111111111;
+            // Mapped PRG-ROM starts at $8000, convert to an index starting at $0.
+            address &= 0x7FFF;
 
             return PrgRomSwitchMode switch
             {
-                SwitchMode.Single32Kb => ((PrgBank & 0b1110) << 14) | address,
-                SwitchMode.FirstFixSecondSwitch => upperBank
-                    ? ((PrgBank & 0b1111) << 14) | address
-                    : (0b1111 << 14) | address,
-                SwitchMode.FirstSwitchSecondFix => upperBank
-                    ? (0b1111 << 14) | address
-                    : ((PrgBank & 0b1111) << 14) | address,
+                SwitchMode.Single32Kb => (((PrgBank & 0b1110) >> 1) * 32768) + address,
+                SwitchMode.FirstFixSecondSwitch => address >= 0x4000
+                    ? (PrgBank & 0b1111) * 16384 + (address & 0x3FFF)
+                    : address,
+                SwitchMode.FirstSwitchSecondFix => address >= 0x4000
+                    ? PrgRom.Length - 16384 + (address & 0x3FFF)
+                    : (PrgBank & 0b1111) * 16384 + address,
                 _ => throw new Exception()
             };
         }
 
         private int GetBankedChrRomAddress(ushort address)
         {
-            bool upperBank = address >= 0x1000;
-            address &= 0b0000111111111111;
-
             if (ChrRom4KbMode)
             {
-                return upperBank
-                    ? (ChrBank1 << 12) | address
-                    : (ChrBank0 << 12) | address;
+                return address >= 0x1000
+                    ? (ChrBank1 * 4096) + (address & 0xFFF)
+                    : (ChrBank0 * 4096) + address;
             }
 
-            return ((ChrBank0 & 0b11110) << 12) | address;
+            return ((ChrBank0 & 0b11110) >> 1) * 8192 + address;
         }
 
         private void ResetShiftRegister()
