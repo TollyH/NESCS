@@ -212,7 +212,7 @@
         private void RunDotLogic()
         {
             if (!wasNMIEnabledPreviously && (Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0
-                && Scanline > VisibleScanlinesPerFrame)
+                && (Registers.PPUSTATUS & PPUSTATUSFlags.VerticalBlank) != 0)
             {
                 // Turning on vertical blanking interrupts midway through the blanking interval will immediately fire the NMI.
                 nesSystem.CpuCore.NonMaskableInterrupt();
