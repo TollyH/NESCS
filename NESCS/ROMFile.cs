@@ -109,7 +109,7 @@ namespace NESCS
             int chrRomStart = PrgRom.Length + 16;
 
             file[16..chrRomStart].CopyTo(PrgRom);
-            file[chrRomStart..].CopyTo(ChrRom);
+            file[chrRomStart..(chrRomStart + chrRomSize)].CopyTo(ChrRom);
         }
 
         public IMapper InitializeNewMapper(NESSystem nesSystem)
