@@ -172,23 +172,26 @@
                 switch (mappedAddress & 0b111)
                 {
                     case mirroredPPUCTRLAddress or mirroredPPUMASKAddress or mirroredOAMADDRAddress or mirroredPPUSCROLLAddress or mirroredPPUADDRAddress:
-                        return dataBus;  // Write-only registers
+                        break;  // Write-only registers
                     case mirroredPPUSTATUSAddress:
-                        PPUSTATUSFlags beforeChange = PPUSTATUS;
+                        dataBus = (byte)((byte)PPUSTATUS | (dataBus & 0b11111));
                         // Reading PPUSTATUS resets write latch and clears VBlank flag
                         W = false;
                         PPUSTATUS &= ~PPUSTATUSFlags.VerticalBlank;
-                        return (byte)beforeChange;
+                        break;
                     case mirroredOAMDATAAddress:
-                        return ppuCore.ObjectAttributeMemory[OAMADDR];
+                        dataBus = ppuCore.ObjectAttributeMemory[OAMADDR];
+                        break;
                     case mirroredPPUDATAAddress:
-                        byte returnValue = readBuffer;
+                        dataBus = readBuffer;
                         readBuffer = ppuCore[V];
                         IncrementPPUADDR();
-                        return returnValue;
+                        break;
                     default:
                         throw new ArgumentException("The given address is not a valid mapped PPU register address.", nameof(mappedAddress));
                 }
+
+                return dataBus;
             }
             set
             {
