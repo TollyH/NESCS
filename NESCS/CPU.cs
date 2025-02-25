@@ -332,7 +332,7 @@
 
                             SetZNFlagsFromAccumulator();
 
-                            if (Registers.A < initialValue)
+                            if (Registers.A < initialValue || (Registers.A == initialValue && operand != 0))
                             {
                                 Registers.P |= CPUStatusFlags.Carry;
                             }
@@ -384,7 +384,7 @@
 
                             SetZNFlagsFromAccumulator();
 
-                            if (Registers.A <= initialValue)
+                            if (Registers.A < initialValue || (Registers.A == initialValue && operand == 0))
                             {
                                 Registers.P |= CPUStatusFlags.Carry;
                             }
@@ -914,7 +914,7 @@
 
                                 SetZNFlagsFromAccumulator();
 
-                                if (Registers.A <= initialValue)
+                                if (Registers.A < initialValue || (Registers.A == initialValue && operand == 0))
                                 {
                                     Registers.P |= CPUStatusFlags.Carry;
                                 }
@@ -1013,7 +1013,7 @@
 
                             SetZNFlagsFromAccumulator();
 
-                            if (Registers.A < initialValue)
+                            if (Registers.A < initialValue || (Registers.A == initialValue && result != 0))
                             {
                                 Registers.P |= CPUStatusFlags.Carry;
                             }
@@ -1104,7 +1104,7 @@
 
                             SetZNFlagsFromAccumulator();
 
-                            if (Registers.A <= initialValue)
+                            if (Registers.A < initialValue || (Registers.A == initialValue && operand == 0))
                             {
                                 Registers.P |= CPUStatusFlags.Carry;
                             }
