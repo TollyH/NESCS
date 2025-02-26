@@ -493,7 +493,7 @@
                             else
                             {
                                 WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteYIndexed
-                                    ? (byte)(Registers.X & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHX
+                                    ? (byte)(Registers.X & ((GetAddressFromOperand(addressingMode) >> 8) + 1))  // UNOFFICIAL - SHX
                                     : Registers.X);  // STX & TXA
 
                                 if (addressingMode == AddressingMode.Accumulator)
@@ -750,7 +750,7 @@
                         // UNOFFICIAL - SHY
                         case 0b100:
                             WriteOperand(addressingMode, addressingMode == AddressingMode.AbsoluteXIndexed
-                                ? (byte)(Registers.Y & (GetAddressFromOperand(addressingMode) >> 8))  // UNOFFICIAL - SHY
+                                ? (byte)(Registers.Y & ((GetAddressFromOperand(addressingMode) >> 8) + 1))  // UNOFFICIAL - SHY
                                 : Registers.Y);  // STY
                             break;
                         // LDY
@@ -853,15 +853,11 @@
                                 break;
                             // ARR
                             case 0b011:
-                                Registers.A &= ReadOperand(addressingMode);
+                                Registers.A = (byte)(((Registers.A & ReadOperand(addressingMode)) >> 1) | ((int)(Registers.P & CPUStatusFlags.Carry) << 7));
 
-                                initialValue = Registers.A;
-                                result = (byte)((initialValue >> 1) | ((int)(Registers.P & CPUStatusFlags.Carry) << 7));
-                                Registers.A = result;
+                                SetZNFlagsFromAccumulator();
 
-                                SetZNFlagsFromValue(result);
-
-                                if ((initialValue & 0b01000000) == 0)
+                                if ((Registers.A & 0b01000000) == 0)
                                 {
                                     Registers.P &= ~CPUStatusFlags.Carry;
                                 }
@@ -870,13 +866,13 @@
                                     Registers.P |= CPUStatusFlags.Carry;
                                 }
 
-                                if (((initialValue & 0b01000000) ^ (initialValue & 0b00100000)) == 0)
+                                if (((Registers.A & 0b01000000) == 0) ^ ((Registers.A & 0b00100000) == 0))
                                 {
-                                    Registers.P &= ~CPUStatusFlags.Overflow;
+                                    Registers.P |= CPUStatusFlags.Overflow;
                                 }
                                 else
                                 {
-                                    Registers.P |= CPUStatusFlags.Overflow;
+                                    Registers.P &= ~CPUStatusFlags.Overflow;
                                 }
                                 break;
                             // XAA
@@ -886,14 +882,14 @@
                                 break;
                             // LAX
                             case 0b101:
-                                Registers.A &= ReadOperand(addressingMode);
+                                Registers.A = ReadOperand(addressingMode);
                                 Registers.X = Registers.A;
                                 SetZNFlagsFromAccumulator();
                                 break;
                             // AXS
                             case 0b110:
-                                initialValue = Registers.X;
-                                Registers.X = (byte)((Registers.A & Registers.X) - ReadOperand(addressingMode));
+                                initialValue = (byte)(Registers.A & Registers.X);
+                                Registers.X = (byte)(initialValue - ReadOperand(addressingMode));
 
                                 SetZNFlagsFromValue(Registers.X);
 
@@ -965,7 +961,7 @@
 
                             Registers.A &= result;
 
-                            SetZNFlagsFromValue(result);
+                            SetZNFlagsFromAccumulator();
                             if ((initialValue & SignBit) == 0)
                             {
                                 Registers.P &= ~CPUStatusFlags.Carry;
