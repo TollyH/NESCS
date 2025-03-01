@@ -2,17 +2,22 @@
 
 namespace NESCS
 {
-    public readonly record struct CycleClock(double FramesPerSecond, double CpuClocksPerPpuDot)
+    public readonly record struct CycleClock(double FramesPerSecond, double CpuClocksPerPpuDot, double ApuClocksPerPpuDot)
     {
         public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
 
-    public readonly record struct FrameTiming(TimeSpan PpuProcessTime, TimeSpan CpuProcessTime, TimeSpan FrameCompleteCallbackTime, TimeSpan TotalTime);
+    public readonly record struct FrameTiming(
+        TimeSpan PpuProcessTime,
+        TimeSpan CpuProcessTime,
+        TimeSpan ApuProcessTime,
+        TimeSpan FrameCompleteCallbackTime,
+        TimeSpan TotalTime);
 
     public class NESSystem
     {
-        public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d);
-        public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2);
+        public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d, 1 / 6d);
+        public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2, 1 / 6.4);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
@@ -45,8 +50,9 @@ namespace NESCS
         public event Action<NESSystem>? FrameComplete;
 
         // This is floating point to account for clocks (like PAL)
-        // where the CPU and PPU don't cleanly align
+        // where the CPU, PPU, and APU don't cleanly align
         private double pendingCpuCycles = 0;
+        private double pendingApuCycles = 0;
 
         public NESSystem()
         {
@@ -87,6 +93,7 @@ namespace NESCS
 
             TimeSpan ppuTotalTime = TimeSpan.Zero;
             TimeSpan cpuTotalTime = TimeSpan.Zero;
+            TimeSpan apuTotalTime = TimeSpan.Zero;
 
             // Keep cycling both processors until the PPU signals that the frame is complete
             bool frameComplete = false;
@@ -97,9 +104,12 @@ namespace NESCS
                 ppuTotalTime += Stopwatch.GetElapsedTime(ppuStartTime);
 
                 pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
+                pendingApuCycles += CurrentClock.ApuClocksPerPpuDot;
 
                 int cpuCyclesThisDot = (int)pendingCpuCycles;
                 pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
+                int apuCyclesThisDot = (int)pendingApuCycles;
+                pendingApuCycles -= apuCyclesThisDot;
 
                 for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
                 {
@@ -107,13 +117,25 @@ namespace NESCS
                     CpuCore.ExecuteClockCycle();
                     cpuTotalTime += Stopwatch.GetElapsedTime(cpuStartTime);
                 }
+
+                for (int cycle = 0; cycle < apuCyclesThisDot; cycle++)
+                {
+                    long apuStartTime = Stopwatch.GetTimestamp();
+                    ApuCore.ClockSequencer();
+                    apuTotalTime += Stopwatch.GetElapsedTime(apuStartTime);
+                }
             }
 
             long callbackStartTime = Stopwatch.GetTimestamp();
             FrameComplete?.Invoke(this);
             TimeSpan callbackTotalTime = Stopwatch.GetElapsedTime(callbackStartTime);
 
-            LastFrameProcessTime = new FrameTiming(ppuTotalTime, cpuTotalTime, callbackTotalTime, Stopwatch.GetElapsedTime(frameStartTime));
+            LastFrameProcessTime = new FrameTiming(
+                ppuTotalTime,
+                cpuTotalTime,
+                apuTotalTime,
+                callbackTotalTime,
+                Stopwatch.GetElapsedTime(frameStartTime));
         }
     }
 }

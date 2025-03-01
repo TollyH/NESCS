@@ -53,20 +53,24 @@ namespace NESCS.GUI
             TimeSpan otherTime = system.LastFrameProcessTime.TotalTime
                 - system.LastFrameProcessTime.PpuProcessTime
                 - system.LastFrameProcessTime.CpuProcessTime
+                - system.LastFrameProcessTime.ApuProcessTime
                 - system.LastFrameProcessTime.FrameCompleteCallbackTime;
 
             double ppuProportion = system.LastFrameProcessTime.PpuProcessTime / system.LastClockTime;
             double cpuProportion = system.LastFrameProcessTime.CpuProcessTime / system.LastClockTime;
+            double apuProportion = system.LastFrameProcessTime.ApuProcessTime / system.LastClockTime;
             double callbackProportion = system.LastFrameProcessTime.FrameCompleteCallbackTime / system.LastClockTime;
             double otherProportion = otherTime / system.LastClockTime;
 
             ppuTimeBar.Width = ppuProportion * barPanel.ActualWidth;
             cpuTimeBar.Width = cpuProportion * barPanel.ActualWidth;
+            apuTimeBar.Width = apuProportion * barPanel.ActualWidth;
             callbackTimeBar.Width = callbackProportion * barPanel.ActualWidth;
             otherTimeBar.Width = otherProportion * barPanel.ActualWidth;
 
             ppuTimeText.Text = $"{system.LastFrameProcessTime.PpuProcessTime.TotalMilliseconds:N1} ms ({ppuProportion:P1})";
             cpuTimeText.Text = $"{system.LastFrameProcessTime.CpuProcessTime.TotalMilliseconds:N1} ms ({cpuProportion:P1})";
+            apuTimeText.Text = $"{system.LastFrameProcessTime.ApuProcessTime.TotalMilliseconds:N1} ms ({apuProportion:P1})";
             callbackTimeText.Text = $"{system.LastFrameProcessTime.FrameCompleteCallbackTime.TotalMilliseconds:N1} ms ({callbackProportion:P1})";
             otherTimeText.Text = $"{otherTime.TotalMilliseconds:N1} ms ({otherProportion:P1})";
             totalTimeText.Text = $"{system.LastFrameProcessTime.TotalTime.TotalMilliseconds:N1} ms ({system.LastFrameProcessTime.TotalTime / system.LastClockTime:P1})";

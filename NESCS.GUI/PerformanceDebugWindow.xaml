@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NESCS.GUI"
         mc:Ignorable="d"
-        Title="Performance Debug" MinHeight="380" Height="380" MinWidth="500" Width="800" Icon="pack://application:,,,/Resources/MenuIcons/clock.png">
+        Title="Performance Debug" MinHeight="380" Height="400" MinWidth="500" Width="800" Icon="pack://application:,,,/Resources/MenuIcons/clock.png">
     <Grid>
         <TextBlock x:Name="frameRateText" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Rate: 0.0 FPS" FontWeight="Bold" FontSize="24"/>
         <TextBlock x:Name="frameTimeText" Margin="10,45,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Time: 0.0 ms" FontSize="22"/>
@@ -18,14 +18,16 @@
             <StackPanel x:Name="barPanel" Orientation="Horizontal" Height="50">
                 <Rectangle x:Name="ppuTimeBar" Fill="#FFCC1B1B" d:Width="50"/>
                 <Rectangle x:Name="cpuTimeBar" Fill="#FF1B1BCC" d:Width="50"/>
+                <Rectangle x:Name="apuTimeBar" Fill="#FFBB0BCC" d:Width="50"/>
                 <Rectangle x:Name="callbackTimeBar" Fill="#FF1BCC1B" d:Width="50"/>
                 <Rectangle x:Name="otherTimeBar" Fill="Gray" d:Width="50"/>
             </StackPanel>
         </Border>
         <TextBlock Margin="10,230,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FFCC1B1B" Text="PPU: "/><Run x:Name="ppuTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
         <TextBlock Margin="10,250,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FF1B1BCC" Text="CPU: "/><Run x:Name="cpuTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
-        <TextBlock Margin="10,270,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FF1BCC1B" Text="Presentation: "/><Run x:Name="callbackTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
-        <TextBlock Margin="10,290,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Gray" Text="Other: "/><Run x:Name="otherTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
-        <TextBlock Margin="10,310,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Black" Text="Total: "/><Run x:Name="totalTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,270,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FFBB0BCC" Text="APU: "/><Run x:Name="apuTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,290,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="#FF1BCC1B" Text="Presentation: "/><Run x:Name="callbackTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,310,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Gray" Text="Other: "/><Run x:Name="otherTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
+        <TextBlock Margin="10,330,10,10" HorizontalAlignment="Left" VerticalAlignment="Top"><Run FontWeight="Bold" Foreground="Black" Text="Total: "/><Run x:Name="totalTimeText" Text="0.0 ms (0.0%)"/></TextBlock>
     </Grid>
 </Window>
