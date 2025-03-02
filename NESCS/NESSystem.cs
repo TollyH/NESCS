@@ -2,7 +2,7 @@
 
 namespace NESCS
 {
-    public readonly record struct CycleClock(double FramesPerSecond, double CpuClocksPerPpuDot, double ApuClocksPerPpuDot)
+    public readonly record struct CycleClock(double FramesPerSecond, double CpuClocksPerPpuDot)
     {
         public readonly long TicksPerFrame = (long)((1 / FramesPerSecond) * Stopwatch.Frequency);
     };
@@ -16,8 +16,8 @@ namespace NESCS
 
     public class NESSystem
     {
-        public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d, 1 / 6d);
-        public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2, 1 / 6.4);
+        public static readonly CycleClock NtscClockPreset = new(60, 1 / 3d);
+        public static readonly CycleClock PalClockPreset = new(50, 1 / 3.2);
 
         public CycleClock CurrentClock { get; set; } = NtscClockPreset;
 
@@ -50,9 +50,8 @@ namespace NESCS
         public event Action<NESSystem>? FrameComplete;
 
         // This is floating point to account for clocks (like PAL)
-        // where the CPU, PPU, and APU don't cleanly align
+        // where the CPU and PPU don't cleanly align
         private double pendingCpuCycles = 0;
-        private double pendingApuCycles = 0;
 
         public NESSystem()
         {
@@ -104,22 +103,16 @@ namespace NESCS
                 ppuTotalTime += Stopwatch.GetElapsedTime(ppuStartTime);
 
                 pendingCpuCycles += CurrentClock.CpuClocksPerPpuDot;
-                pendingApuCycles += CurrentClock.ApuClocksPerPpuDot;
 
                 int cpuCyclesThisDot = (int)pendingCpuCycles;
                 pendingCpuCycles -= cpuCyclesThisDot;  // Keep just the fractional part
-                int apuCyclesThisDot = (int)pendingApuCycles;
-                pendingApuCycles -= apuCyclesThisDot;
 
                 for (int cycle = 0; cycle < cpuCyclesThisDot; cycle++)
                 {
                     long cpuStartTime = Stopwatch.GetTimestamp();
                     CpuCore.ExecuteClockCycle();
                     cpuTotalTime += Stopwatch.GetElapsedTime(cpuStartTime);
-                }
 
-                for (int cycle = 0; cycle < apuCyclesThisDot; cycle++)
-                {
                     long apuStartTime = Stopwatch.GetTimestamp();
                     ApuCore.ClockSequencer();
                     apuTotalTime += Stopwatch.GetElapsedTime(apuStartTime);

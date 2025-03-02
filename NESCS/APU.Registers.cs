@@ -6,7 +6,7 @@
         None = 0,
 
         DisableFrameInterrupt = 0b1000000,
-        FiveFrameSequence = 0b10000000
+        FiveStepSequence = 0b10000000
     }
 
     [Flags]
@@ -70,15 +70,22 @@
         {
             get
             {
-                return mappedAddress switch
+                switch (mappedAddress)
                 {
-                    // Bit 5 of status register is open bus
-                    MappedStatusControlAddress => (byte)((byte)StatusControl | ((mappedAddress >> 8) & 0b00100000)),
-                    // Top 3-bits of controller input are open bus
-                    MappedJOY1Address => (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerOne.ReadClock() ? 1 : 0)),
-                    MappedJOY2Address => (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerTwo.ReadClock() ? 1 : 0)),
-                    _ => (byte)(mappedAddress >> 8)  // Open bus
-                };
+                    case MappedStatusControlAddress:
+                        byte returnValue = (byte)((byte)StatusControl | ((mappedAddress >> 8) & 0b00100000));
+                        // Reading $4015 unsets interrupt flag
+                        StatusControl &= ~StatusControlFlags.FrameInterrupt;
+                        // Bit 5 of status register is open bus
+                        return returnValue;
+                    case MappedJOY1Address:
+                        // Top 3-bits of controller input are open bus
+                        return (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerOne.ReadClock() ? 1 : 0));
+                    case MappedJOY2Address:
+                        return (byte)(((mappedAddress >> 8) & 0b11100000) | (nesSystem.ControllerTwo.ReadClock() ? 1 : 0));
+                    default:
+                        return (byte)(mappedAddress >> 8); // Open bus
+                }
             }
             set
             {
