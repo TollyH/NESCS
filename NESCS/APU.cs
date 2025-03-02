@@ -79,6 +79,8 @@
         {
             RunNextSequenceStep();
 
+            ClockAllChannelTimer();
+
             if ((Registers.StatusControl & StatusControlFlags.FrameInterrupt) != 0)
             {
                 nesSystem.CpuCore.InterruptRequest();
@@ -126,6 +128,14 @@
             }
         }
 
+        private void ClockAllChannelTimer()
+        {
+            foreach (IChannel channel in Channels)
+            {
+                channel.ClockTimer();
+            }
+        }
+
         private void ClockAllChannelEnvelope()
         {
             foreach (IChannel channel in Channels)
@@ -145,6 +155,10 @@
 
     public interface IChannel
     {
+        public double GetSample();
+
+        public void ClockTimer();
+
         public void ClockEnvelope();
 
         public void ClockLengthCounter();
@@ -152,6 +166,52 @@
 
     public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : IChannel
     {
+        public const int DutyCycles = 4;
+        public const int DutyCycleSequenceLength = 8;
+
+        public static readonly double[,] DutyCycleSequences = new double[DutyCycles, DutyCycleSequenceLength]
+        {
+            { 0, 1, 0, 0, 0, 0, 0, 0 },
+            { 0, 1, 1, 0, 0, 0, 0, 0 },
+            { 0, 1, 1, 1, 1, 0, 0, 0 },
+            { 1, 0, 0, 1, 1, 1, 1, 1 },
+        };
+
+        public readonly PulseChannelRegisters Registers = registers;
+
+        // Pulse channel only updates every other CPU cycle
+        private bool oddClock = true;
+
+        private int timer = 0;
+        private int cycleSequenceIndex = 0;
+
+        private double currentSample = 0;
+
+        public double GetSample()
+        {
+            if (Registers.Timer < 8)
+            {
+                return 0;
+            }
+
+            return currentSample;
+        }
+
+        public void ClockTimer()
+        {
+            oddClock = !oddClock;
+
+            if (oddClock)
+            {
+                if (--timer < 0)
+                {
+                    timer = Registers.Timer;
+                    currentSample = DutyCycleSequences[Registers.DutyCycle, cycleSequenceIndex++];
+                    cycleSequenceIndex %= DutyCycleSequenceLength;
+                }
+            }
+        }
+
         public void ClockEnvelope()
         {
             throw new NotImplementedException();
@@ -165,6 +225,18 @@
 
     public class TriangleChannel(TriangleChannelRegisters registers) : IChannel
     {
+        public readonly TriangleChannelRegisters Registers = registers;
+
+        public double GetSample()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void ClockTimer()
+        {
+            throw new NotImplementedException();
+        }
+
         public void ClockEnvelope()
         {
             throw new NotImplementedException();
@@ -178,6 +250,18 @@
 
     public class NoiseChannel(NoiseChannelRegisters registers) : IChannel
     {
+        public readonly NoiseChannelRegisters Registers = registers;
+
+        public double GetSample()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void ClockTimer()
+        {
+            throw new NotImplementedException();
+        }
+
         public void ClockEnvelope()
         {
             throw new NotImplementedException();
@@ -191,6 +275,18 @@
 
     public class DMCChannel(DMCChannelRegisters registers) : IChannel
     {
+        public readonly DMCChannelRegisters Registers = registers;
+
+        public double GetSample()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void ClockTimer()
+        {
+            throw new NotImplementedException();
+        }
+
         public void ClockEnvelope()
         {
             throw new NotImplementedException();
