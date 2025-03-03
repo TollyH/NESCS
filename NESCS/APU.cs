@@ -146,10 +146,10 @@
 
         private void ClockAllChannelLengthCounter()
         {
-            foreach (IChannel channel in Channels)
-            {
-                channel.ClockLengthCounter();
-            }
+            Pulse1.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownPulse1) != 0);
+            Pulse2.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownPulse2) != 0);
+            Triangle.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownTriangle) != 0);
+            Noise.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownNoise) != 0);
         }
     }
 
@@ -161,7 +161,7 @@
 
         public void ClockEnvelope();
 
-        public void ClockLengthCounter();
+        public void ClockLengthCounter(bool enabled);
     }
 
     public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : IChannel
@@ -189,7 +189,7 @@
 
         public double GetSample()
         {
-            if (Registers.Timer < 8)
+            if (Registers.Timer < 8 || Registers.LengthCounter <= 0)
             {
                 return 0;
             }
@@ -205,6 +205,8 @@
             {
                 if (--timer < 0)
                 {
+                    // Timer wraps around from 0 to the current Timer register value.
+                    // This causes the next cycle in the sequence to be selected, thus controlling the frequency.
                     timer = Registers.Timer;
                     currentSample = DutyCycleSequences[Registers.DutyCycle, cycleSequenceIndex++];
                     cycleSequenceIndex %= DutyCycleSequenceLength;
@@ -217,9 +219,16 @@
             throw new NotImplementedException();
         }
 
-        public void ClockLengthCounter()
+        public void ClockLengthCounter(bool enabled)
         {
-            throw new NotImplementedException();
+            if (!enabled)
+            {
+                Registers.LengthCounter = 0;
+            }
+            else if (Registers is { LengthCounter: > 0, HaltLengthCounter: false })
+            {
+                Registers.LengthCounter--;
+            }
         }
     }
 
@@ -239,10 +248,10 @@
 
         public void ClockEnvelope()
         {
-            throw new NotImplementedException();
+            // The Triangle channel does not have an envelope
         }
 
-        public void ClockLengthCounter()
+        public void ClockLengthCounter(bool enabled)
         {
             throw new NotImplementedException();
         }
@@ -267,7 +276,7 @@
             throw new NotImplementedException();
         }
 
-        public void ClockLengthCounter()
+        public void ClockLengthCounter(bool enabled)
         {
             throw new NotImplementedException();
         }
@@ -289,12 +298,12 @@
 
         public void ClockEnvelope()
         {
-            throw new NotImplementedException();
+            // The DMC channel does not have an envelope
         }
 
-        public void ClockLengthCounter()
+        public void ClockLengthCounter(bool enabled)
         {
-            throw new NotImplementedException();
+            // The DMC channel does not have a length counter
         }
     }
 }

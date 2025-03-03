@@ -278,7 +278,7 @@
             }
         }
 
-        public byte LengthCounterLoad
+        public byte LengthCounter
         {
             get => (byte)(LengthTimerHigh >> 3);
             set => LengthTimerHigh = (byte)((LengthTimerHigh & 0b00000111) | (value << 3));
@@ -325,7 +325,7 @@
             }
         }
 
-        public byte LengthCounterLoad
+        public byte LengthCounter
         {
             get => (byte)(LengthTimerHigh >> 3);
             set => LengthTimerHigh = (byte)((LengthTimerHigh & 0b00000111) | (value << 3));
@@ -400,7 +400,7 @@
             set => LoopPeriod = (byte)((LoopPeriod & 0b11110000) | (value & 0b00001111));
         }
 
-        public byte LengthCounterLoad
+        public byte LengthCounter
         {
             get => (byte)(Length >> 3);
             set => Length = (byte)((Length & 0b00000111) | (value << 3));
