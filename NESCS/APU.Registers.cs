@@ -104,6 +104,7 @@
                         break;
                     case MappedPulse1LengthTimerHighAddress:
                         Pulse1Registers.LengthTimerHigh = value;
+                        nesSystem.ApuCore.Pulse1.OnLengthCounterLoadWrite();
                         break;
                     // Pulse 2
                     case MappedPulse2SoundConfigAddress:
@@ -117,6 +118,7 @@
                         break;
                     case MappedPulse2LengthTimerHighAddress:
                         Pulse2Registers.LengthTimerHigh = value;
+                        nesSystem.ApuCore.Pulse2.OnLengthCounterLoadWrite();
                         break;
                     // Triangle
                     case MappedTriangleSoundConfigAddress:
@@ -127,6 +129,7 @@
                         break;
                     case MappedTriangleLengthTimerHighAddress:
                         TriangleRegisters.LengthTimerHigh = value;
+                        nesSystem.ApuCore.Triangle.OnLengthCounterLoadWrite();
                         break;
                     // Noise
                     case MappedNoiseSoundConfigAddress:
@@ -137,6 +140,7 @@
                         break;
                     case MappedNoiseLengthAddress:
                         NoiseRegisters.Length = value;
+                        nesSystem.ApuCore.Noise.OnLengthCounterLoadWrite();
                         break;
                     // DMC
                     case MappedDmcSoundConfigAddress:
@@ -150,6 +154,7 @@
                         break;
                     case MappedDmcSampleLengthRawAddress:
                         DmcRegisters.SampleLengthRaw = value;
+                        nesSystem.ApuCore.Dmc.OnLengthCounterLoadWrite();
                         break;
                     // Global APU/extra CPU registers
                     case MappedOAMDMAAddress:

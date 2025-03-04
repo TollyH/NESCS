@@ -162,12 +162,16 @@
         public void ClockEnvelope();
 
         public void ClockLengthCounter(bool enabled);
+
+        public void OnLengthCounterLoadWrite();
     }
 
     public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : IChannel
     {
         public const int DutyCycles = 4;
         public const int DutyCycleSequenceLength = 8;
+
+        private const int envelopeDecayValueReset = 15;
 
         public static readonly double[,] DutyCycleSequences = new double[DutyCycles, DutyCycleSequenceLength]
         {
@@ -185,6 +189,10 @@
         private int timer = 0;
         private int cycleSequenceIndex = 0;
 
+        private bool envelopeStartFlag = true;
+        private int envelopeDecayLevel = envelopeDecayValueReset;
+        private int envelopeDivider = 0;
+
         private double currentSample = 0;
 
         public double GetSample()
@@ -194,7 +202,7 @@
                 return 0;
             }
 
-            return currentSample;
+            return (Registers.ConstantVolume ? Registers.Volume : envelopeDecayLevel) * currentSample;
         }
 
         public void ClockTimer()
@@ -216,7 +224,25 @@
 
         public void ClockEnvelope()
         {
-            throw new NotImplementedException();
+            if (envelopeStartFlag)
+            {
+                envelopeDecayLevel = envelopeDecayValueReset;
+                envelopeStartFlag = false;
+                envelopeDivider = Registers.Volume;
+            }
+            else if (--envelopeDivider < 0)
+            {
+                envelopeDivider = Registers.Volume;
+                if (envelopeDecayLevel > 0)
+                {
+                    envelopeDecayLevel--;
+                    // Length counter halt being active also activates the envelope loop mode
+                    if (envelopeDecayLevel == 0 && Registers.HaltLengthCounter)
+                    {
+                        envelopeDecayLevel = envelopeDecayValueReset;
+                    }
+                }
+            }
         }
 
         public void ClockLengthCounter(bool enabled)
@@ -229,6 +255,12 @@
             {
                 Registers.LengthCounter--;
             }
+        }
+
+        public void OnLengthCounterLoadWrite()
+        {
+            envelopeStartFlag = true;
+            cycleSequenceIndex = 0;
         }
     }
 
@@ -252,6 +284,11 @@
         }
 
         public void ClockLengthCounter(bool enabled)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void OnLengthCounterLoadWrite()
         {
             throw new NotImplementedException();
         }
@@ -280,6 +317,11 @@
         {
             throw new NotImplementedException();
         }
+
+        public void OnLengthCounterLoadWrite()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class DMCChannel(DMCChannelRegisters registers) : IChannel
@@ -304,6 +346,11 @@
         public void ClockLengthCounter(bool enabled)
         {
             // The DMC channel does not have a length counter
+        }
+
+        public void OnLengthCounterLoadWrite()
+        {
+            throw new NotImplementedException();
         }
     }
 }
