@@ -98,6 +98,7 @@
                         break;
                     case MappedPulse1SweepAddress:
                         Pulse1Registers.Sweep = value;
+                        nesSystem.ApuCore.Pulse1.OnSweepWrite();
                         break;
                     case MappedPulse1TimerLowAddress:
                         Pulse1Registers.TimerLow = value;
@@ -112,6 +113,7 @@
                         break;
                     case MappedPulse2SweepAddress:
                         Pulse2Registers.Sweep = value;
+                        nesSystem.ApuCore.Pulse2.OnSweepWrite();
                         break;
                     case MappedPulse2TimerLowAddress:
                         Pulse2Registers.TimerLow = value;
@@ -154,7 +156,6 @@
                         break;
                     case MappedDmcSampleLengthRawAddress:
                         DmcRegisters.SampleLengthRaw = value;
-                        nesSystem.ApuCore.Dmc.OnLengthCounterLoadWrite();
                         break;
                     // Global APU/extra CPU registers
                     case MappedOAMDMAAddress:

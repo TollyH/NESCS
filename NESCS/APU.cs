@@ -160,10 +160,6 @@
         public void ClockTimer();
 
         public void ClockEnvelope();
-
-        public void ClockLengthCounter(bool enabled);
-
-        public void OnLengthCounterLoadWrite();
     }
 
     public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : IChannel
@@ -193,11 +189,17 @@
         private int envelopeDecayLevel = envelopeDecayValueReset;
         private int envelopeDivider = 0;
 
+        private bool sweepReloadFlag = true;
+        private int sweepDivider = 0;
+        private ushort sweepTargetPeriod = 0;
+
         private double currentSample = 0;
+
+        private bool isMuted => Registers.Timer < 8 || sweepTargetPeriod > 0x7FF;
 
         public double GetSample()
         {
-            if (Registers.Timer < 8 || Registers.LengthCounter <= 0)
+            if (isMuted || Registers.LengthCounter <= 0)
             {
                 return 0;
             }
@@ -211,6 +213,23 @@
 
             if (oddClock)
             {
+                int sweepChange = timer >> Registers.SweepShiftCount;
+                if (Registers.SweepNegate)
+                {
+                    if (twosComplementSweep)
+                    {
+                        // NEGATE = two's complement (used by Pulse 2)
+                        sweepChange = -sweepChange;
+                    }
+                    else
+                    {
+                        // NOT = one's complement (used by Pulse 1)
+                        sweepChange = ~sweepChange;
+                    }
+                }
+                sweepChange += timer;
+                sweepTargetPeriod = (ushort)(sweepChange < 0 ? 0 : sweepChange);
+
                 if (--timer < 0)
                 {
                     // Timer wraps around from 0 to the current Timer register value.
@@ -255,12 +274,33 @@
             {
                 Registers.LengthCounter--;
             }
+
+            // Pulse Sweep is clocked at the same time as the length counter
+            if (Registers.SweepEnabled && sweepDivider == 0 && Registers.SweepShiftCount != 0 && !isMuted)
+            {
+                Registers.Timer = sweepTargetPeriod;
+            }
+
+            if (sweepReloadFlag || sweepDivider == 0)
+            {
+                sweepDivider = Registers.SweepPeriod;
+                sweepReloadFlag = false;
+            }
+            else
+            {
+                sweepDivider--;
+            }
         }
 
         public void OnLengthCounterLoadWrite()
         {
             envelopeStartFlag = true;
             cycleSequenceIndex = 0;
+        }
+
+        public void OnSweepWrite()
+        {
+            sweepReloadFlag = true;
         }
     }
 
@@ -346,11 +386,6 @@
         public void ClockLengthCounter(bool enabled)
         {
             // The DMC channel does not have a length counter
-        }
-
-        public void OnLengthCounterLoadWrite()
-        {
-            throw new NotImplementedException();
         }
     }
 }
