@@ -55,6 +55,8 @@
 
         public readonly IChannel[] Channels;
 
+        public readonly List<double> OutputSamples = new();
+
         private readonly NESSystem nesSystem;
 
         public APU(NESSystem nesSystem)
@@ -81,12 +83,23 @@
 
             ClockAllChannelTimer();
 
+            OutputSamples.Add(GetMixedOutputSample());
+
             if ((Registers.StatusControl & StatusControlFlags.FrameInterrupt) != 0)
             {
                 nesSystem.CpuCore.InterruptRequest();
             }
 
             CurrentCycle++;
+        }
+
+        private double GetMixedOutputSample()
+        {
+            // These formulas replicate the weighting that the real NES puts on each channel in the final mix.
+            // The final sample will always be between 0.0 and 1.0.
+            double pulseOutput = 95.88 / (8128.0 / (Pulse1.GetSample() + Pulse2.GetSample()) + 100);
+            double tndOutput = 159.79 / (1 / ((Triangle.GetSample() / 8227.0) + (Noise.GetSample() / 12241.0) + (Dmc.GetSample() / 22638.0)) + 100);
+            return pulseOutput + tndOutput;
         }
 
         private void RunNextSequenceStep()
@@ -155,7 +168,7 @@
 
     public interface IChannel
     {
-        public double GetSample();
+        public byte GetSample();
 
         public void ClockTimer();
 
@@ -169,7 +182,7 @@
 
         private const int envelopeDecayValueReset = 15;
 
-        public static readonly double[,] DutyCycleSequences = new double[DutyCycles, DutyCycleSequenceLength]
+        public static readonly byte[,] DutyCycleSequences = new byte[DutyCycles, DutyCycleSequenceLength]
         {
             { 0, 1, 0, 0, 0, 0, 0, 0 },
             { 0, 1, 1, 0, 0, 0, 0, 0 },
@@ -193,18 +206,18 @@
         private int sweepDivider = 0;
         private ushort sweepTargetPeriod = 0;
 
-        private double currentSample = 0;
+        private byte currentSample = 0;
 
         private bool isMuted => Registers.Timer < 8 || sweepTargetPeriod > 0x7FF;
 
-        public double GetSample()
+        public byte GetSample()
         {
             if (isMuted || Registers.LengthCounter <= 0)
             {
                 return 0;
             }
 
-            return (Registers.ConstantVolume ? Registers.Volume : envelopeDecayLevel) * currentSample;
+            return (byte)((Registers.ConstantVolume ? Registers.Volume : envelopeDecayLevel) * currentSample);
         }
 
         public void ClockTimer()
@@ -308,7 +321,7 @@
     {
         public readonly TriangleChannelRegisters Registers = registers;
 
-        public double GetSample()
+        public byte GetSample()
         {
             throw new NotImplementedException();
         }
@@ -338,7 +351,7 @@
     {
         public readonly NoiseChannelRegisters Registers = registers;
 
-        public double GetSample()
+        public byte GetSample()
         {
             throw new NotImplementedException();
         }
@@ -368,7 +381,7 @@
     {
         public readonly DMCChannelRegisters Registers = registers;
 
-        public double GetSample()
+        public byte GetSample()
         {
             throw new NotImplementedException();
         }

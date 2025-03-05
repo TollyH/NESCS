@@ -123,6 +123,9 @@ namespace NESCS
             FrameComplete?.Invoke(this);
             TimeSpan callbackTotalTime = Stopwatch.GetElapsedTime(callbackStartTime);
 
+            // Drop APU output samples every frame to prevent the buffer filling indefinitely
+            ApuCore.OutputSamples.Clear();
+
             LastFrameProcessTime = new FrameTiming(
                 ppuTotalTime,
                 cpuTotalTime,
