@@ -6,6 +6,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace NESCS.GUI
 {
@@ -28,6 +30,9 @@ namespace NESCS.GUI
             PixelFormats.Rgb24,
             null);
 
+        private WaveOutEvent audioOutputDevice = new();
+        private BufferedSampleProvider sampleProvider;
+
         private Thread? emulationThread = null;
 
         private CancellationTokenSource emulationCancellationTokenSource = new();
@@ -49,6 +54,13 @@ namespace NESCS.GUI
 
             nesDisplay.Source = nesDisplayBitmap;
             SetDisplayScale(1.0);
+
+            // TODO: Reinitialise and update sample rate when changing clock/PPU timing
+            sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate);
+            WdlResamplingSampleProvider sampleConverter = new(sampleProvider, 44100);
+
+            audioOutputDevice.Init(sampleConverter);
+            audioOutputDevice.Play();
         }
 
         ~MainWindow()
@@ -203,6 +215,8 @@ namespace NESCS.GUI
                 Dispatcher.Invoke(() =>
                 {
                     RenderDisplay(nesSystem.PpuCore.OutputPixels);
+                    sampleProvider.BufferSamples(nesSystem.ApuCore.OutputSamples);
+                    audioOutputDevice.Play();
 
                     // This will be the frame time of the last frame, not this one,
                     // as this frame complete method is included in the process time.

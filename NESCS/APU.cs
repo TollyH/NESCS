@@ -40,6 +40,14 @@
             41565,
             41566);
 
+        // When the length counter load register is written,
+        // the actual value of the length counter is loaded from this table using the written value as an index.
+        public static readonly byte[] LengthCounterLoadTable = new byte[0x20]
+        {
+            0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
+            0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E
+        };
+
         public APUSequenceTiming Current4StepSequenceTiming { get; set; } = Ntsc4StepSequenceTiming;
         public APUSequenceTiming Current5StepSequenceTiming { get; set; } = Ntsc5StepSequenceTiming;
 
@@ -55,7 +63,7 @@
 
         public readonly IChannel[] Channels;
 
-        public readonly List<double> OutputSamples = new();
+        public readonly List<float> OutputSamples = new();
 
         private readonly NESSystem nesSystem;
 
@@ -93,12 +101,12 @@
             CurrentCycle++;
         }
 
-        private double GetMixedOutputSample()
+        private float GetMixedOutputSample()
         {
             // These formulas replicate the weighting that the real NES puts on each channel in the final mix.
             // The final sample will always be between 0.0 and 1.0.
-            double pulseOutput = 95.88 / (8128.0 / (Pulse1.GetSample() + Pulse2.GetSample()) + 100);
-            double tndOutput = 159.79 / (1 / ((Triangle.GetSample() / 8227.0) + (Noise.GetSample() / 12241.0) + (Dmc.GetSample() / 22638.0)) + 100);
+            float pulseOutput = 95.88f / (8128.0f / (Pulse1.GetSample() + Pulse2.GetSample()) + 100);
+            float tndOutput = 159.79f / (1 / ((Triangle.GetSample() / 8227.0f) + (Noise.GetSample() / 12241.0f) + (Dmc.GetSample() / 22638.0f)) + 100);
             return pulseOutput + tndOutput;
         }
 
@@ -309,6 +317,7 @@
         {
             envelopeStartFlag = true;
             cycleSequenceIndex = 0;
+            Registers.LengthCounter = APU.LengthCounterLoadTable[Registers.LengthCounter];
         }
 
         public void OnSweepWrite()

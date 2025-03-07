@@ -39,6 +39,8 @@ namespace NESCS
         public IController ControllerOne { get; set; } = new Controllers.Empty();
         public IController ControllerTwo { get; set; } = new Controllers.Empty();
 
+        public int AudioSampleRate => (int)(CurrentClock.FramesPerSecond * PpuCore.ScanlinesPerFrame * PPU.CyclesPerScanline * CurrentClock.CpuClocksPerPpuDot);
+
         public readonly Memory SystemMemory;
 
         public readonly CPU CpuCore;
