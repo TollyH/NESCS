@@ -177,7 +177,13 @@
         }
     }
 
-    public class PulseChannelRegisters
+    public interface IEnvelopedChannelRegisters
+    {
+        public byte Volume { get; }
+        public bool HaltLengthCounter { get; }
+    }
+
+    public class PulseChannelRegisters : IEnvelopedChannelRegisters
     {
         // Mapped write-only registers
         public byte SoundConfig;
@@ -338,7 +344,7 @@
         }
     }
 
-    public class NoiseChannelRegisters
+    public class NoiseChannelRegisters : IEnvelopedChannelRegisters
     {
         // Mapped write-only registers
         public byte SoundConfig;

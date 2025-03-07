@@ -63,6 +63,9 @@
 
         public readonly IChannel[] Channels;
 
+        /// <summary>
+        /// All audio samples produced in the current frame. Each sample is between 0.0 and 1.0.
+        /// </summary>
         public readonly List<float> OutputSamples = new();
 
         private readonly NESSystem nesSystem;
@@ -183,12 +186,58 @@
         public void ClockEnvelope();
     }
 
-    public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : IChannel
+    /// <summary>
+    /// Represents an audio channel that supports volume envelope (Pulse and Noise in the NES).
+    /// </summary>
+    /// <typeparam name="T">The type that contains that channel's registers</typeparam>
+    public abstract class EnvelopedChannel<T>(T registers) : IChannel
+        where T : IEnvelopedChannelRegisters
+    {
+        protected const int envelopeDecayValueReset = 15;
+
+        public readonly T Registers = registers;
+
+        protected bool envelopeStartFlag = true;
+        protected byte envelopeDecayLevel = envelopeDecayValueReset;
+        protected int envelopeDivider = 0;
+
+        public abstract byte GetSample();
+
+        public abstract void ClockTimer();
+
+        public virtual void ClockEnvelope()
+        {
+            if (envelopeStartFlag)
+            {
+                envelopeDecayLevel = envelopeDecayValueReset;
+                envelopeStartFlag = false;
+                envelopeDivider = Registers.Volume;
+            }
+            else if (--envelopeDivider < 0)
+            {
+                envelopeDivider = Registers.Volume;
+                if (envelopeDecayLevel > 0)
+                {
+                    envelopeDecayLevel--;
+                    // Length counter halt being active also activates the envelope loop mode
+                    if (envelopeDecayLevel == 0 && Registers.HaltLengthCounter)
+                    {
+                        envelopeDecayLevel = envelopeDecayValueReset;
+                    }
+                }
+            }
+        }
+
+        public virtual void OnLengthCounterLoadWrite()
+        {
+            envelopeStartFlag = true;
+        }
+    }
+
+    public class PulseChannel(PulseChannelRegisters registers, bool twosComplementSweep) : EnvelopedChannel<PulseChannelRegisters>(registers)
     {
         public const int DutyCycles = 4;
         public const int DutyCycleSequenceLength = 8;
-
-        private const int envelopeDecayValueReset = 15;
 
         public static readonly byte[,] DutyCycleSequences = new byte[DutyCycles, DutyCycleSequenceLength]
         {
@@ -198,17 +247,11 @@
             { 1, 0, 0, 1, 1, 1, 1, 1 },
         };
 
-        public readonly PulseChannelRegisters Registers = registers;
-
         // Pulse channel only updates every other CPU cycle
         private bool oddClock = true;
 
         private int timer = 0;
         private int cycleSequenceIndex = 0;
-
-        private bool envelopeStartFlag = true;
-        private int envelopeDecayLevel = envelopeDecayValueReset;
-        private int envelopeDivider = 0;
 
         private bool sweepReloadFlag = true;
         private int sweepDivider = 0;
@@ -218,7 +261,7 @@
 
         private bool isMuted => Registers.Timer < 8 || sweepTargetPeriod > 0x7FF;
 
-        public byte GetSample()
+        public override byte GetSample()
         {
             if (isMuted || Registers.LengthCounter <= 0)
             {
@@ -228,7 +271,7 @@
             return (byte)((Registers.ConstantVolume ? Registers.Volume : envelopeDecayLevel) * currentSample);
         }
 
-        public void ClockTimer()
+        public override void ClockTimer()
         {
             oddClock = !oddClock;
 
@@ -262,29 +305,6 @@
             }
         }
 
-        public void ClockEnvelope()
-        {
-            if (envelopeStartFlag)
-            {
-                envelopeDecayLevel = envelopeDecayValueReset;
-                envelopeStartFlag = false;
-                envelopeDivider = Registers.Volume;
-            }
-            else if (--envelopeDivider < 0)
-            {
-                envelopeDivider = Registers.Volume;
-                if (envelopeDecayLevel > 0)
-                {
-                    envelopeDecayLevel--;
-                    // Length counter halt being active also activates the envelope loop mode
-                    if (envelopeDecayLevel == 0 && Registers.HaltLengthCounter)
-                    {
-                        envelopeDecayLevel = envelopeDecayValueReset;
-                    }
-                }
-            }
-        }
-
         public void ClockLengthCounter(bool enabled)
         {
             if (!enabled)
@@ -313,9 +333,10 @@
             }
         }
 
-        public void OnLengthCounterLoadWrite()
+        public override void OnLengthCounterLoadWrite()
         {
-            envelopeStartFlag = true;
+            base.OnLengthCounterLoadWrite();
+
             cycleSequenceIndex = 0;
             Registers.LengthCounter = APU.LengthCounterLoadTable[Registers.LengthCounter];
         }
@@ -328,61 +349,129 @@
 
     public class TriangleChannel(TriangleChannelRegisters registers) : IChannel
     {
+        public const int SampleSequenceLength = 0x20;
+
+        public static readonly byte[] SampleSequence = new byte[SampleSequenceLength]
+        {
+            0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+        };
+
         public readonly TriangleChannelRegisters Registers = registers;
+
+        private int timer = 0;
+        private int cycleSequenceIndex = 0;
+
+        private bool linearCounterReloadFlag = true;
+        private int linearCounter = 0;
+
+        private byte currentSample = 0;
 
         public byte GetSample()
         {
-            throw new NotImplementedException();
+            return currentSample;
         }
 
         public void ClockTimer()
         {
-            throw new NotImplementedException();
+            if (--timer < 0)
+            {
+                // Timer wraps around from 0 to the current Timer register value.
+                // This causes the next cycle in the sequence to be selected, thus controlling the frequency.
+                timer = Registers.Timer;
+                if (linearCounter != 0 && Registers.LengthCounter != 0)
+                {
+                    currentSample = SampleSequence[cycleSequenceIndex++];
+                    cycleSequenceIndex %= SampleSequenceLength;
+                }
+            }
         }
 
         public void ClockEnvelope()
         {
-            // The Triangle channel does not have an envelope
+            // Envelope clock is used to clock Triangle's linear counter
+            if (linearCounterReloadFlag)
+            {
+                linearCounter = Registers.CounterReloadValue;
+            }
+            else if (linearCounter != 0)
+            {
+                linearCounter--;
+            }
+
+            if (!Registers.ControlFlag)
+            {
+                linearCounterReloadFlag = false;
+            }
         }
 
         public void ClockLengthCounter(bool enabled)
         {
-            throw new NotImplementedException();
+            if (!enabled)
+            {
+                Registers.LengthCounter = 0;
+            }
+            else if (Registers is { LengthCounter: > 0, ControlFlag: false })
+            {
+                Registers.LengthCounter--;
+            }
         }
 
         public void OnLengthCounterLoadWrite()
         {
-            throw new NotImplementedException();
+            linearCounterReloadFlag = true;
         }
     }
 
-    public class NoiseChannel(NoiseChannelRegisters registers) : IChannel
+    public class NoiseChannel(NoiseChannelRegisters registers) : EnvelopedChannel<NoiseChannelRegisters>(registers)
     {
-        public readonly NoiseChannelRegisters Registers = registers;
-
-        public byte GetSample()
+        public static readonly int[] NtscTimerPeriods = new int[0x10]
         {
-            throw new NotImplementedException();
+            4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068
+        };
+        public static readonly int[] PalTimerPeriods = new int[0x10]
+        {
+            4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778
+        };
+
+        public int[] CurrentTimerPeriods { get; set; } = NtscTimerPeriods;
+
+        private int timer = 0;
+
+        private int shiftRegister = 1;
+
+        public override byte GetSample()
+        {
+            if (Registers.LengthCounter <= 0 || (shiftRegister & 1) != 0)
+            {
+                return 0;
+            }
+
+            return Registers.ConstantVolume ? Registers.Volume : envelopeDecayLevel;
         }
 
-        public void ClockTimer()
+        public override void ClockTimer()
         {
-            throw new NotImplementedException();
-        }
+            if (--timer < 0)
+            {
+                timer = CurrentTimerPeriods[Registers.Period];
 
-        public void ClockEnvelope()
-        {
-            throw new NotImplementedException();
+                int feedback = (byte)((shiftRegister & 1) ^ (Registers.LoopMode ? ((shiftRegister & 0b1000000) >> 6) : ((shiftRegister & 0b10) >> 1)));
+                shiftRegister >>= 1;
+                shiftRegister |= feedback << 14;
+            }
         }
 
         public void ClockLengthCounter(bool enabled)
         {
-            throw new NotImplementedException();
-        }
-
-        public void OnLengthCounterLoadWrite()
-        {
-            throw new NotImplementedException();
+            if (!enabled)
+            {
+                Registers.LengthCounter = 0;
+            }
+            else if (Registers is { LengthCounter: > 0, HaltLengthCounter: false })
+            {
+                Registers.LengthCounter--;
+            }
         }
     }
 
@@ -392,12 +481,12 @@
 
         public byte GetSample()
         {
-            throw new NotImplementedException();
+            return 0;
         }
 
         public void ClockTimer()
         {
-            throw new NotImplementedException();
+
         }
 
         public void ClockEnvelope()
