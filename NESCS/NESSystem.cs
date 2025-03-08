@@ -70,6 +70,12 @@ namespace NESCS
         {
             CpuCore.Reset(powerCycle);
             PpuCore.Reset(powerCycle);
+            ApuCore.Reset(powerCycle);
+
+            if (powerCycle)
+            {
+                SystemMemory.Reset();
+            }
         }
 
         public void StartClock(CancellationToken cancellationToken)

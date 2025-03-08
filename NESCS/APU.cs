@@ -88,6 +88,19 @@
             };
         }
 
+        public void Reset(bool powerCycle)
+        {
+            ResetAllChannels(powerCycle);
+
+            Registers.StatusControl = 0;
+            CurrentCycle = 0;
+
+            if (powerCycle)
+            {
+                Registers.FrameCounter = 0;
+            }
+        }
+
         public void ClockSequencer()
         {
             RunNextSequenceStep();
@@ -152,6 +165,14 @@
             }
         }
 
+        private void ResetAllChannels(bool powerCycle)
+        {
+            foreach (IChannel channel in Channels)
+            {
+                channel.Reset(powerCycle);
+            }
+        }
+
         private void ClockAllChannelTimer()
         {
             foreach (IChannel channel in Channels)
@@ -179,6 +200,8 @@
 
     public interface IChannel
     {
+        public void Reset(bool powerCycle);
+
         public byte GetSample();
 
         public void ClockTimer();
@@ -200,6 +223,18 @@
         protected bool envelopeStartFlag = true;
         protected byte envelopeDecayLevel = envelopeDecayValueReset;
         protected int envelopeDivider = 0;
+
+        public virtual void Reset(bool powerCycle)
+        {
+            if (!powerCycle)
+            {
+                return;
+            }
+
+            envelopeStartFlag = true;
+            envelopeDecayLevel = envelopeDecayValueReset;
+            envelopeDivider = 0;
+        }
 
         public abstract byte GetSample();
 
@@ -260,6 +295,19 @@
         private byte currentSample = 0;
 
         private bool isMuted => Registers.Timer < 8 || sweepTargetPeriod > 0x7FF;
+
+        public override void Reset(bool powerCycle)
+        {
+            base.Reset(powerCycle);
+
+            if (powerCycle)
+            {
+                Registers.SoundConfig = 0;
+                Registers.Sweep = 0;
+                Registers.TimerLow = 0;
+                Registers.LengthTimerHigh = 0;
+            }
+        }
 
         public override byte GetSample()
         {
@@ -367,6 +415,20 @@
 
         private byte currentSample = 0;
 
+        public void Reset(bool powerCycle)
+        {
+            if (powerCycle)
+            {
+                Registers.SoundConfig = 0;
+                Registers.TimerLow = 0;
+                Registers.LengthTimerHigh = 0;
+            }
+            else
+            {
+                cycleSequenceIndex = 0;
+            }
+        }
+
         public byte GetSample()
         {
             return currentSample;
@@ -440,6 +502,20 @@
 
         private int shiftRegister = 1;
 
+        public override void Reset(bool powerCycle)
+        {
+            base.Reset(powerCycle);
+
+            if (powerCycle)
+            {
+                shiftRegister = 1;
+
+                Registers.SoundConfig = 0;
+                Registers.Length = 0;
+                Registers.LoopPeriod = 0;
+            }
+        }
+
         public override byte GetSample()
         {
             if (Registers.LengthCounter <= 0 || (shiftRegister & 1) != 0)
@@ -478,6 +554,21 @@
     public class DMCChannel(DMCChannelRegisters registers) : IChannel
     {
         public readonly DMCChannelRegisters Registers = registers;
+
+        public void Reset(bool powerCycle)
+        {
+            if (powerCycle)
+            {
+                Registers.SoundConfig = 0;
+                Registers.DirectLoadRaw = 0;
+                Registers.SampleAddressRaw = 0;
+                Registers.SampleLengthRaw = 0;
+            }
+            else
+            {
+                Registers.DirectLoadRaw &= 1;
+            }
+        }
 
         public byte GetSample()
         {

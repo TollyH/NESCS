@@ -37,6 +37,19 @@
             }
         }
 
+        public void Reset()
+        {
+            for (int i = 0; i < InternalRam.Length; i++)
+            {
+                InternalRam[i] = 0;
+            }
+
+            for (int i = 0; i < CiRam.Length; i++)
+            {
+                CiRam[i] = 0;
+            }
+        }
+
         public ushort ReadTwoBytes(ushort address)
         {
             return (ushort)(this[address] | (this[(ushort)(address + 1)] << 8));

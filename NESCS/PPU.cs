@@ -156,6 +156,21 @@
                 Registers.PPUSTATUS = 0;
                 Registers.OAMADDR = 0;
                 Registers.V = 0;
+
+                for (int i = 0; i < PaletteRAM.Length; i++)
+                {
+                    PaletteRAM[i] = 0;
+                }
+
+                for (int i = 0; i < ObjectAttributeMemory.Length; i++)
+                {
+                    ObjectAttributeMemory[i] = 0;
+                }
+
+                for (int i = 0; i < SecondaryOAM.Length; i++)
+                {
+                    SecondaryOAM[i] = 0;
+                }
             }
 
             Registers.PPUCTRL = 0;
