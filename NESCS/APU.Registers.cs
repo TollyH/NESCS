@@ -14,11 +14,11 @@
     {
         None = 0,
 
-        LengthCountdownPulse1 = 0b1,
-        LengthCountdownPulse2 = 0b10,
-        LengthCountdownTriangle = 0b100,
-        LengthCountdownNoise = 0b1000,
-        DmcEnable = 0b10000,
+        EnablePulse1 = 0b1,
+        EnablePulse2 = 0b10,
+        EnableTriangle = 0b100,
+        EnableNoise = 0b1000,
+        EnableDmc = 0b10000,
         FrameInterrupt = 0b1000000,
         DmcInterrupt = 0b10000000
 
@@ -177,10 +177,15 @@
         }
     }
 
-    public interface IEnvelopedChannelRegisters
+    public interface ILengthCounterChannelRegisters
+    {
+        public bool HaltLengthCounter { get; }
+        public byte LengthCounterReload { get; }
+    }
+
+    public interface IEnvelopedChannelRegisters : ILengthCounterChannelRegisters
     {
         public byte Volume { get; }
-        public bool HaltLengthCounter { get; }
     }
 
     public class PulseChannelRegisters : IEnvelopedChannelRegisters
@@ -290,14 +295,14 @@
             }
         }
 
-        public byte LengthCounter
+        public byte LengthCounterReload
         {
             get => (byte)(LengthTimerHigh >> 3);
             set => LengthTimerHigh = (byte)((LengthTimerHigh & 0b00000111) | (value << 3));
         }
     }
 
-    public class TriangleChannelRegisters
+    public class TriangleChannelRegisters : ILengthCounterChannelRegisters
     {
         // Mapped write-only registers
         public byte SoundConfig;
@@ -305,7 +310,7 @@
         public byte LengthTimerHigh;
 
         // Extracted values
-        public bool ControlFlag
+        public bool HaltLengthCounter
         {
             get => (SoundConfig & 0b10000000) != 0;
             set
@@ -337,7 +342,7 @@
             }
         }
 
-        public byte LengthCounter
+        public byte LengthCounterReload
         {
             get => (byte)(LengthTimerHigh >> 3);
             set => LengthTimerHigh = (byte)((LengthTimerHigh & 0b00000111) | (value << 3));
@@ -412,7 +417,7 @@
             set => LoopPeriod = (byte)((LoopPeriod & 0b11110000) | (value & 0b00001111));
         }
 
-        public byte LengthCounter
+        public byte LengthCounterReload
         {
             get => (byte)(Length >> 3);
             set => Length = (byte)((Length & 0b00000111) | (value << 3));

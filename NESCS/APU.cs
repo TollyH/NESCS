@@ -191,10 +191,10 @@
 
         private void ClockAllChannelLengthCounter()
         {
-            Pulse1.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownPulse1) != 0);
-            Pulse2.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownPulse2) != 0);
-            Triangle.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownTriangle) != 0);
-            Noise.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.LengthCountdownNoise) != 0);
+            Pulse1.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.EnablePulse1) != 0);
+            Pulse2.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.EnablePulse2) != 0);
+            Triangle.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.EnableTriangle) != 0);
+            Noise.ClockLengthCounter((Registers.StatusControl & StatusControlFlags.EnableNoise) != 0);
         }
     }
 
@@ -210,21 +210,61 @@
     }
 
     /// <summary>
-    /// Represents an audio channel that supports volume envelope (Pulse and Noise in the NES).
+    /// Represents an audio channel that supports a length counter (all but DMC in the NES).
     /// </summary>
     /// <typeparam name="T">The type that contains that channel's registers</typeparam>
-    public abstract class EnvelopedChannel<T>(T registers) : IChannel
+    public abstract class LengthCounterChannel<T>(T registers) : IChannel
+        where T : ILengthCounterChannelRegisters
+    {
+        public readonly T Registers = registers;
+
+        protected int lengthCounter = 0;
+
+        public abstract void Reset(bool powerCycle);
+
+        public abstract byte GetSample();
+
+        public abstract void ClockTimer();
+
+        public abstract void ClockEnvelope();
+
+        public virtual void ClockLengthCounter(bool enabled)
+        {
+            if (!enabled)
+            {
+                lengthCounter = 0;
+            }
+            else if (!Registers.HaltLengthCounter && lengthCounter > 0)
+            {
+                lengthCounter--;
+            }
+        }
+
+        public virtual void OnLengthCounterLoadWrite()
+        {
+            if (Registers.HaltLengthCounter)
+            {
+                return;
+            }
+
+            lengthCounter = APU.LengthCounterLoadTable[Registers.LengthCounterReload];
+        }
+    }
+
+    /// <summary>
+    /// Represents an audio channel that supports volume envelope and a length counter (Pulse and Noise in the NES).
+    /// </summary>
+    /// <typeparam name="T">The type that contains that channel's registers</typeparam>
+    public abstract class EnvelopedChannel<T>(T registers) : LengthCounterChannel<T>(registers)
         where T : IEnvelopedChannelRegisters
     {
         protected const int envelopeDecayValueReset = 15;
-
-        public readonly T Registers = registers;
 
         protected bool envelopeStartFlag = true;
         protected byte envelopeDecayLevel = envelopeDecayValueReset;
         protected int envelopeDivider = 0;
 
-        public virtual void Reset(bool powerCycle)
+        public override void Reset(bool powerCycle)
         {
             if (!powerCycle)
             {
@@ -236,11 +276,7 @@
             envelopeDivider = 0;
         }
 
-        public abstract byte GetSample();
-
-        public abstract void ClockTimer();
-
-        public virtual void ClockEnvelope()
+        public override void ClockEnvelope()
         {
             if (envelopeStartFlag)
             {
@@ -263,8 +299,10 @@
             }
         }
 
-        public virtual void OnLengthCounterLoadWrite()
+        public override void OnLengthCounterLoadWrite()
         {
+            base.OnLengthCounterLoadWrite();
+
             envelopeStartFlag = true;
         }
     }
@@ -311,7 +349,7 @@
 
         public override byte GetSample()
         {
-            if (isMuted || Registers.LengthCounter <= 0)
+            if (isMuted || lengthCounter <= 0)
             {
                 return 0;
             }
@@ -353,16 +391,9 @@
             }
         }
 
-        public void ClockLengthCounter(bool enabled)
+        public override void ClockLengthCounter(bool enabled)
         {
-            if (!enabled)
-            {
-                Registers.LengthCounter = 0;
-            }
-            else if (Registers is { LengthCounter: > 0, HaltLengthCounter: false })
-            {
-                Registers.LengthCounter--;
-            }
+            base.ClockLengthCounter(enabled);
 
             // Pulse Sweep is clocked at the same time as the length counter
             if (Registers.SweepEnabled && sweepDivider == 0 && Registers.SweepShiftCount != 0 && !isMuted)
@@ -386,7 +417,6 @@
             base.OnLengthCounterLoadWrite();
 
             cycleSequenceIndex = 0;
-            Registers.LengthCounter = APU.LengthCounterLoadTable[Registers.LengthCounter];
         }
 
         public void OnSweepWrite()
@@ -395,7 +425,7 @@
         }
     }
 
-    public class TriangleChannel(TriangleChannelRegisters registers) : IChannel
+    public class TriangleChannel(TriangleChannelRegisters registers) : LengthCounterChannel<TriangleChannelRegisters>(registers)
     {
         public const int SampleSequenceLength = 0x20;
 
@@ -405,8 +435,6 @@
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
         };
 
-        public readonly TriangleChannelRegisters Registers = registers;
-
         private int timer = 0;
         private int cycleSequenceIndex = 0;
 
@@ -415,7 +443,7 @@
 
         private byte currentSample = 0;
 
-        public void Reset(bool powerCycle)
+        public override void Reset(bool powerCycle)
         {
             if (powerCycle)
             {
@@ -429,19 +457,19 @@
             }
         }
 
-        public byte GetSample()
+        public override byte GetSample()
         {
             return currentSample;
         }
 
-        public void ClockTimer()
+        public override void ClockTimer()
         {
             if (--timer < 0)
             {
                 // Timer wraps around from 0 to the current Timer register value.
                 // This causes the next cycle in the sequence to be selected, thus controlling the frequency.
-                timer = Registers.Timer;
-                if (linearCounter != 0 && Registers.LengthCounter != 0)
+                timer = Registers.Timer + 1;
+                if (linearCounter != 0 && lengthCounter != 0)
                 {
                     currentSample = SampleSequence[cycleSequenceIndex++];
                     cycleSequenceIndex %= SampleSequenceLength;
@@ -449,7 +477,7 @@
             }
         }
 
-        public void ClockEnvelope()
+        public override void ClockEnvelope()
         {
             // Envelope clock is used to clock Triangle's linear counter
             if (linearCounterReloadFlag)
@@ -461,26 +489,16 @@
                 linearCounter--;
             }
 
-            if (!Registers.ControlFlag)
+            if (!Registers.HaltLengthCounter)
             {
                 linearCounterReloadFlag = false;
             }
         }
 
-        public void ClockLengthCounter(bool enabled)
+        public override void OnLengthCounterLoadWrite()
         {
-            if (!enabled)
-            {
-                Registers.LengthCounter = 0;
-            }
-            else if (Registers is { LengthCounter: > 0, ControlFlag: false })
-            {
-                Registers.LengthCounter--;
-            }
-        }
+            base.OnLengthCounterLoadWrite();
 
-        public void OnLengthCounterLoadWrite()
-        {
             linearCounterReloadFlag = true;
         }
     }
@@ -518,7 +536,7 @@
 
         public override byte GetSample()
         {
-            if (Registers.LengthCounter <= 0 || (shiftRegister & 1) != 0)
+            if (lengthCounter <= 0 || (shiftRegister & 1) != 0)
             {
                 return 0;
             }
@@ -535,18 +553,6 @@
                 int feedback = (byte)((shiftRegister & 1) ^ (Registers.LoopMode ? ((shiftRegister & 0b1000000) >> 6) : ((shiftRegister & 0b10) >> 1)));
                 shiftRegister >>= 1;
                 shiftRegister |= feedback << 14;
-            }
-        }
-
-        public void ClockLengthCounter(bool enabled)
-        {
-            if (!enabled)
-            {
-                Registers.LengthCounter = 0;
-            }
-            else if (Registers is { LengthCounter: > 0, HaltLengthCounter: false })
-            {
-                Registers.LengthCounter--;
             }
         }
     }
