@@ -12,6 +12,7 @@
         <TextBlock x:Name="frameTargetText" Margin="10,80,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Target: 0.0 FPS / 0.0 ms" FontSize="20"/>
         <TextBlock x:Name="targetHitText" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="On Target" Foreground="Green" FontWeight="Bold" FontSize="24"/>
         <TextBlock x:Name="targetDetailText" Margin="10,45,10,10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="0.0 ms (0%) to spare" Foreground="Green" FontSize="22"/>
+        <TextBlock x:Name="lagCounterText" Margin="10,80,10,10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="Delayed frames: 0" Foreground="Black" FontSize="20"/>
 
         <TextBlock Margin="10,130,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Frame Time Breakdown:" FontWeight="Bold" FontSize="18"/>
         <Border VerticalAlignment="Top" Margin="10,165,10,0" BorderBrush="Black" BorderThickness="1">

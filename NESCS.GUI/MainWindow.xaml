@@ -83,6 +83,11 @@
                         <Image Source="pack://application:,,,/Resources/MenuIcons/clock.png"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="_Audio" InputGestureText="Ctrl+Alt+A" Click="OpenAudioDebugItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/music-beam.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
         </Menu>
         <Image x:Name="nesDisplay" Grid.Row="1" RenderOptions.BitmapScalingMode="NearestNeighbor"/>

@@ -1,0 +1,29 @@
+﻿<Window x:Class="NESCS.GUI.AudioDebugWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NESCS.GUI"
+        mc:Ignorable="d"
+        Title="Audio Debug" Width="650" Height="320" ResizeMode="CanMinimize" Icon="pack://application:,,,/Resources/MenuIcons/music-beam.png">
+    <Grid>
+        <TextBlock x:Name="bufferSizeText" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Buffered Sample Count: 0" FontWeight="Bold" FontSize="24"/>
+        <TextBlock x:Name="bufferLatencyText" Margin="10,45,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Buffer Read Latency: 0 ms" FontSize="20"/>
+        <TextBlock x:Name="nesSampleRateText" Margin="10,80,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Source Sample Rate: 0 Hz (0 s/f)" FontSize="18"/>
+        <TextBlock x:Name="outputSampleRateText" Margin="10,115,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Output Sample Rate: 0 Hz (0 s/f)" FontSize="18"/>
+
+        <TextBlock x:Name="bufferHealthText" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="Buffer is Healthy" FontWeight="Bold" FontSize="24" Foreground="Green"/>
+        <TextBlock x:Name="lagCounterText" Margin="10,45,10,10" HorizontalAlignment="Right" VerticalAlignment="Top" Text="Starved frames: 0" Foreground="Black" FontSize="20"/>
+
+        <GroupBox Header="Isolate Channel" Margin="10" Padding="2" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+            <StackPanel>
+                <RadioButton x:Name="isolateChannelRadioMix" GroupName="channelIsolate" Content="Mixed Output" IsChecked="True"/>
+                <RadioButton x:Name="isolateChannelRadioPulse1" GroupName="channelIsolate" Content="Pulse 1"/>
+                <RadioButton x:Name="isolateChannelRadioPulse2" GroupName="channelIsolate" Content="Pulse 2"/>
+                <RadioButton x:Name="isolateChannelRadioTriangle" GroupName="channelIsolate" Content="Triangle"/>
+                <RadioButton x:Name="isolateChannelRadioNoise" GroupName="channelIsolate" Content="Noise"/>
+                <RadioButton x:Name="isolateChannelRadioDmc" GroupName="channelIsolate" Content="DMC"/>
+            </StackPanel>
+        </GroupBox>
+    </Grid>
+</Window>

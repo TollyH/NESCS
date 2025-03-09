@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -30,14 +31,15 @@ namespace NESCS.GUI
             PixelFormats.Rgb24,
             null);
 
-        private WaveOutEvent audioOutputDevice = new();
-        private BufferedSampleProvider sampleProvider;
+        private DirectSoundOut? audioOutputDevice;
+        private BufferedSampleProvider? sampleProvider;
 
         private Thread? emulationThread = null;
 
         private CancellationTokenSource emulationCancellationTokenSource = new();
 
         private PerformanceDebugWindow? performanceDebugWindow;
+        private AudioDebugWindow? audioDebugWindow;
 
         private static readonly Int32Rect displayRect =
             new(0, 0, PPU.VisibleCyclesPerFrame, PPU.VisibleScanlinesPerFrame);
@@ -55,12 +57,19 @@ namespace NESCS.GUI
             nesDisplay.Source = nesDisplayBitmap;
             SetDisplayScale(1.0);
 
-            // TODO: Reinitialise and update sample rate when changing clock/PPU timing
-            sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate);
-            WdlResamplingSampleProvider sampleConverter = new(sampleProvider, 44100);
+            // Check that an audio output device exists before setting up audio
+            using MMDeviceEnumerator audioDeviceEnumerator = new();
+            if (audioDeviceEnumerator.HasDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+            {
+                MMDevice outputDevice = audioDeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
-            audioOutputDevice.Init(sampleConverter);
-            audioOutputDevice.Play();
+                // TODO: Reinitialise and update sample rate when changing clock/PPU timing
+                sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate);
+                WdlResamplingSampleProvider sampleConverter = new(sampleProvider, outputDevice.AudioClient.MixFormat.SampleRate);
+
+                audioOutputDevice = new DirectSoundOut();
+                audioOutputDevice.Init(sampleConverter);
+            }
         }
 
         ~MainWindow()
@@ -72,6 +81,7 @@ namespace NESCS.GUI
         {
             GC.SuppressFinalize(this);
             StopEmulation();
+            audioOutputDevice?.Dispose();
         }
 
         public void StartEmulation()
@@ -180,6 +190,23 @@ namespace NESCS.GUI
             performanceDebugWindow.Show();
         }
 
+        private void OpenAudioDebugWindow()
+        {
+            if (audioDebugWindow is not null)
+            {
+                // Audio debug window is already open, focus it instead.
+                audioDebugWindow.Focus();
+                return;
+            }
+
+            audioDebugWindow = new AudioDebugWindow()
+            {
+                Owner = this
+            };
+            audioDebugWindow.Closed += audioDebugWindow_Closed;
+            audioDebugWindow.Show();
+        }
+
         private void EmulationThreadStart()
         {
             EmulatedNesSystem.StartClock(emulationCancellationTokenSource.Token);
@@ -215,8 +242,30 @@ namespace NESCS.GUI
                 Dispatcher.Invoke(() =>
                 {
                     RenderDisplay(nesSystem.PpuCore.OutputPixels);
-                    sampleProvider.BufferSamples(nesSystem.ApuCore.OutputSamples);
-                    audioOutputDevice.Play();
+
+                    // Don't render audio when stepping frames
+                    if (EmulationRunning)
+                    {
+                        if (audioDebugWindow is not null && sampleProvider is not null && audioOutputDevice is not null)
+                        {
+                            audioDebugWindow.UpdateDisplays(sampleProvider, nesSystem,
+                                nesSystem.ApuCore.OutputSamples.Count, audioOutputDevice.OutputWaveFormat.SampleRate);
+                            sampleProvider?.BufferSamples(audioDebugWindow.SelectedAudioChannel switch
+                            {
+                                AudioChannel.Pulse1 => nesSystem.ApuCore.Pulse1.OutputSamples.Select(s => s / 30f),
+                                AudioChannel.Pulse2 => nesSystem.ApuCore.Pulse2.OutputSamples.Select(s => s / 30f),
+                                AudioChannel.Triangle => nesSystem.ApuCore.Triangle.OutputSamples.Select(s => s / 30f),
+                                AudioChannel.Noise => nesSystem.ApuCore.Noise.OutputSamples.Select(s => s / 30f),
+                                AudioChannel.Dmc => nesSystem.ApuCore.Dmc.OutputSamples.Select(s => s / 254f),
+                                _ => nesSystem.ApuCore.OutputSamples
+                            });
+                        }
+                        else
+                        {
+                            sampleProvider?.BufferSamples(nesSystem.ApuCore.OutputSamples);
+                        }
+                        audioOutputDevice?.Play();
+                    }
 
                     // This will be the frame time of the last frame, not this one,
                     // as this frame complete method is included in the process time.
@@ -272,6 +321,9 @@ namespace NESCS.GUI
                 // Debug shortcuts
                 case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
                     OpenPerformanceDebugWindow();
+                    break;
+                case Key.A when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                    OpenAudioDebugWindow();
                     break;
                 // Controller input
                 // TODO: Make configurable
@@ -370,6 +422,11 @@ namespace NESCS.GUI
             OpenPerformanceDebugWindow();
         }
 
+        private void OpenAudioDebugItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenAudioDebugWindow();
+        }
+
         private void FrameStepItem_Click(object sender, RoutedEventArgs e)
         {
             FrameStepEmulation();
@@ -383,6 +440,11 @@ namespace NESCS.GUI
         private void performanceDebugWindow_Closed(object? sender, EventArgs e)
         {
             performanceDebugWindow = null;
+        }
+
+        private void audioDebugWindow_Closed(object? sender, EventArgs e)
+        {
+            audioDebugWindow = null;
         }
     }
 }

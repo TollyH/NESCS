@@ -61,10 +61,11 @@
         public readonly NoiseChannel Noise;
         public readonly DMCChannel Dmc;
 
-        public readonly IChannel[] Channels;
+        public readonly Channel[] Channels;
 
         /// <summary>
-        /// All audio samples produced in the current frame. Each sample is between 0.0 and 1.0.
+        /// All audio samples produced in the current frame.
+        /// Each sample is between 0.0 and 1.0 and is a mix of all channels.
         /// </summary>
         public readonly List<float> OutputSamples = new();
 
@@ -82,7 +83,7 @@
             Noise = new NoiseChannel(Registers.NoiseRegisters);
             Dmc = new DMCChannel(Registers.DmcRegisters);
 
-            Channels = new IChannel[5]
+            Channels = new Channel[5]
             {
                 Pulse1, Pulse2, Triangle, Noise, Dmc
             };
@@ -99,6 +100,12 @@
             {
                 Registers.FrameCounter = 0;
             }
+        }
+
+        public void ClearSampleBuffers()
+        {
+            OutputSamples.Clear();
+            ClearAllChannelSampleBuffers();
         }
 
         public void ClockSequencer()
@@ -167,15 +174,23 @@
 
         private void ResetAllChannels(bool powerCycle)
         {
-            foreach (IChannel channel in Channels)
+            foreach (Channel channel in Channels)
             {
                 channel.Reset(powerCycle);
             }
         }
 
+        private void ClearAllChannelSampleBuffers()
+        {
+            foreach (Channel channel in Channels)
+            {
+                channel.OutputSamples.Clear();
+            }
+        }
+
         private void ClockAllChannelTimer()
         {
-            foreach (IChannel channel in Channels)
+            foreach (Channel channel in Channels)
             {
                 channel.ClockTimer();
             }
@@ -183,7 +198,7 @@
 
         private void ClockAllChannelEnvelope()
         {
-            foreach (IChannel channel in Channels)
+            foreach (Channel channel in Channels)
             {
                 channel.ClockEnvelope();
             }
@@ -198,35 +213,39 @@
         }
     }
 
-    public interface IChannel
+    public abstract class Channel
     {
-        public void Reset(bool powerCycle);
+        public readonly List<float> OutputSamples = new();
 
-        public byte GetSample();
+        public abstract void Reset(bool powerCycle);
 
-        public void ClockTimer();
+        public abstract void ClockTimer();
 
-        public void ClockEnvelope();
+        public abstract void ClockEnvelope();
+
+        /// <remarks>
+        /// Adds the current sample to the list of this channel's specific output samples.
+        /// </remarks>
+        public byte GetSample()
+        {
+            byte sample = GetSampleLogic();
+            OutputSamples.Add(sample);
+            return sample;
+        }
+
+        protected abstract byte GetSampleLogic();
     }
 
     /// <summary>
     /// Represents an audio channel that supports a length counter (all but DMC in the NES).
     /// </summary>
     /// <typeparam name="T">The type that contains that channel's registers</typeparam>
-    public abstract class LengthCounterChannel<T>(T registers) : IChannel
+    public abstract class LengthCounterChannel<T>(T registers) : Channel
         where T : ILengthCounterChannelRegisters
     {
         public readonly T Registers = registers;
 
         protected int lengthCounter = 0;
-
-        public abstract void Reset(bool powerCycle);
-
-        public abstract byte GetSample();
-
-        public abstract void ClockTimer();
-
-        public abstract void ClockEnvelope();
 
         public virtual void ClockLengthCounter(bool enabled)
         {
@@ -347,7 +366,7 @@
             }
         }
 
-        public override byte GetSample()
+        protected override byte GetSampleLogic()
         {
             if (isMuted || lengthCounter <= 0)
             {
@@ -457,7 +476,7 @@
             }
         }
 
-        public override byte GetSample()
+        protected override byte GetSampleLogic()
         {
             return currentSample;
         }
@@ -534,7 +553,7 @@
             }
         }
 
-        public override byte GetSample()
+        protected override byte GetSampleLogic()
         {
             if (lengthCounter <= 0 || (shiftRegister & 1) != 0)
             {
@@ -557,11 +576,11 @@
         }
     }
 
-    public class DMCChannel(DMCChannelRegisters registers) : IChannel
+    public class DMCChannel(DMCChannelRegisters registers) : Channel
     {
         public readonly DMCChannelRegisters Registers = registers;
 
-        public void Reset(bool powerCycle)
+        public override void Reset(bool powerCycle)
         {
             if (powerCycle)
             {
@@ -576,24 +595,19 @@
             }
         }
 
-        public byte GetSample()
+        protected override byte GetSampleLogic()
         {
             return 0;
         }
 
-        public void ClockTimer()
+        public override void ClockTimer()
         {
 
         }
 
-        public void ClockEnvelope()
+        public override void ClockEnvelope()
         {
             // The DMC channel does not have an envelope
-        }
-
-        public void ClockLengthCounter(bool enabled)
-        {
-            // The DMC channel does not have a length counter
         }
     }
 }

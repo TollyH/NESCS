@@ -8,6 +8,8 @@ namespace NESCS.GUI
     /// </summary>
     public partial class PerformanceDebugWindow : Window
     {
+        private int lagCounter = 0;
+
         public PerformanceDebugWindow()
         {
             InitializeComponent();
@@ -41,6 +43,8 @@ namespace NESCS.GUI
             }
             else
             {
+                lagCounter++;
+
                 double overTime = system.LastFrameProcessTime.TotalTime.TotalMilliseconds - targetMsPerFrame;
 
                 targetHitText.Text = "Behind Target (Running Slow)";
@@ -49,6 +53,8 @@ namespace NESCS.GUI
                 targetDetailText.Text = $"Taking {overTime:N1} ms ({overTime / targetMsPerFrame:P1}) too long";
                 targetDetailText.Foreground = Brushes.DarkRed;
             }
+
+            lagCounterText.Text = $"Delayed frames: {lagCounter}";
 
             TimeSpan otherTime = system.LastFrameProcessTime.TotalTime
                 - system.LastFrameProcessTime.PpuProcessTime
