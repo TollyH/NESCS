@@ -235,6 +235,11 @@
 
             wasNMIEnabledPreviously = (Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0;
 
+            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle is > 0 and <= VisibleCyclesPerFrame)
+            {
+                RenderDot();
+            }
+
             switch (Scanline)
             {
                 // Visible scanlines & Pre-render scanline
@@ -301,21 +306,14 @@
 
                         // There is no newly fetched background data on the first active cycle to move into storage for rendering,
                         // all the data for the first two tiles was moved in the previous scanline.
-                        if (Cycle > 1)
+                        if (Cycle > 1 && (Cycle & 0b111) == 0)
                         {
-                            switch (Cycle & 0b111)
-                            {
-                                case 0:
-                                    // Last fetch for tile was just completed, increment to next one
-                                    Registers.CoarseXScrollIncrement();
-                                    break;
-                                case 1:
-                                    // First dot of tile will be rendered this cycle, store background data needed for rendering
-                                    fetchedBackgroundData[0] = fetchedBackgroundData[1];
-                                    fetchedBackgroundData[1] = new FetchedBackgroundData(
-                                        fetchedCoarseX, fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
-                                    break;
-                            }
+                            // Last fetch for tile was just completed, increment to next one
+                            Registers.CoarseXScrollIncrement();
+                            // First dot of tile will be rendered next cycle, store background data needed for rendering
+                            fetchedBackgroundData[0] = fetchedBackgroundData[1];
+                            fetchedBackgroundData[1] = new FetchedBackgroundData(
+                                fetchedCoarseX, fetchedAttributeTableData, fetchedPatternTableDataLow, fetchedPatternTableDataHigh);
                         }
 
                         if (Cycle == SpriteFetchStartCycle - 1)
@@ -368,11 +366,6 @@
                 // Vertical blanking interval
                 default:
                     break;
-            }
-
-            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle <= VisibleCyclesPerFrame)
-            {
-                RenderDot();
             }
         }
 
