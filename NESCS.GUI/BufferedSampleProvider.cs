@@ -9,6 +9,8 @@ namespace NESCS.GUI
 
         public int BufferedSampleCount => sampleBuffer.Count;
 
+        public int MaxBufferSize { get; set; } = int.MaxValue;
+
         /// <summary>
         /// This is the last measured real-time between a sample being added to the buffer and being read back off.
         /// The time between a sample being read and being played back to the user is not included.
@@ -23,6 +25,11 @@ namespace NESCS.GUI
         public void BufferSamples(IEnumerable<float> samples)
         {
             sampleBuffer.AddRange(samples);
+
+            if (sampleBuffer.Count > MaxBufferSize)
+            {
+                sampleBuffer.RemoveRange(0, sampleBuffer.Count - MaxBufferSize);
+            }
 
             // Latency is measured by seeing how much time there is between samples being
             // added to the buffer and the last of those samples being read off the buffer.

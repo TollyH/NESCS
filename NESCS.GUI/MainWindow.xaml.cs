@@ -64,7 +64,10 @@ namespace NESCS.GUI
                 MMDevice outputDevice = audioDeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
                 // TODO: Reinitialise and update sample rate when changing clock/PPU timing
-                sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate);
+                sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate)
+                {
+                    MaxBufferSize = EmulatedNesSystem.AudioSampleRate  // Limit the buffer to 1 second of data before old samples are dropped
+                };
                 WdlResamplingSampleProvider sampleConverter = new(sampleProvider, outputDevice.AudioClient.MixFormat.SampleRate);
 
                 audioOutputDevice = new DirectSoundOut();
