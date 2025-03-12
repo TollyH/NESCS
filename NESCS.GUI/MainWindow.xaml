@@ -78,6 +78,12 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="_Debug">
+                <MenuItem Header="_Nametables" InputGestureText="Ctrl+Alt+N" Click="OpenNametableDebugItem_Click">
+                    <MenuItem.Icon>
+                        <Image Source="pack://application:,,,/Resources/MenuIcons/map.png"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Header="_Performance" InputGestureText="Ctrl+Alt+P" Click="OpenPerformanceDebugItem_Click">
                     <MenuItem.Icon>
                         <Image Source="pack://application:,,,/Resources/MenuIcons/clock.png"/>

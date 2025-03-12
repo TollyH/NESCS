@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Media;
 
-namespace NESCS.GUI
+namespace NESCS.GUI.DebugWindows
 {
     /// <summary>
     /// Interaction logic for PerformanceDebugWindow.xaml

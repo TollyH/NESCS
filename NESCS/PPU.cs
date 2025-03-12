@@ -9,7 +9,7 @@
         public const int PalScanlinesPerFrame = 312;
         public const int VisibleScanlinesPerFrame = 240;
         public const int CyclesPerScanline = 341;
-        public const int VisibleCyclesPerFrame = SpriteFetchStartCycle - 1;
+        public const int VisibleCyclesPerScanline = SpriteFetchStartCycle - 1;
 
         public const int SpriteFetchStartCycle = 257;
         public const int NextScanlineTileStartCycle = 321;
@@ -77,6 +77,8 @@
 
         public int SpriteHeight => (Registers.PPUCTRL & PPUCTRLFlags.SpriteHeight) != 0 ? 16 : 8;
 
+        public event Action? VerticalBlankStart;
+
         // Stores whether the vertical blanking NMI was enabled on the previous frame.
         // Used to trigger an NMI if the flag is toggled on midway through the blanking interval.
         private bool wasNMIEnabledPreviously = false;
@@ -109,7 +111,7 @@
             Registers = new PPURegisters(this);
 
             ScanlinesPerFrame = scanlinesPerFrame;
-            OutputPixels = new Color[VisibleScanlinesPerFrame, VisibleCyclesPerFrame];
+            OutputPixels = new Color[VisibleScanlinesPerFrame, VisibleCyclesPerScanline];
 
             Reset(true);
         }
@@ -235,7 +237,7 @@
 
             wasNMIEnabledPreviously = (Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0;
 
-            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle is > 0 and <= VisibleCyclesPerFrame)
+            if (Scanline is >= 0 and < VisibleScanlinesPerFrame && Cycle is > 0 and <= VisibleCyclesPerScanline)
             {
                 RenderDot();
             }
@@ -259,7 +261,7 @@
                     if (!IsRenderingEnabled)
                     {
                         if (Scanline is >= 0 and < VisibleScanlinesPerFrame
-                            && Cycle is >= 1 and <= VisibleCyclesPerFrame)
+                            && Cycle is >= 1 and <= VisibleCyclesPerScanline)
                         {
                             // The colour displayed when rendering is disabled is usually the backdrop colour,
                             // unless V is currently in palette RAM in which case that colour is used
@@ -354,13 +356,18 @@
                     break;
                 // Vertical blanking start
                 case VisibleScanlinesPerFrame + 1:
-                    if (Cycle == 1)
+                    switch (Cycle)
                     {
-                        Registers.PPUSTATUS |= PPUSTATUSFlags.VerticalBlank;
-                        if ((Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0)
-                        {
-                            nesSystem.CpuCore.NonMaskableInterrupt();
-                        }
+                        case 0:
+                            VerticalBlankStart?.Invoke();
+                            break;
+                        case 1:
+                            Registers.PPUSTATUS |= PPUSTATUSFlags.VerticalBlank;
+                            if ((Registers.PPUCTRL & PPUCTRLFlags.VerticalBlankNmiEnable) != 0)
+                            {
+                                nesSystem.CpuCore.NonMaskableInterrupt();
+                            }
+                            break;
                     }
                     break;
                 // Vertical blanking interval

@@ -1,18 +1,8 @@
 ﻿using System.Windows;
 using System.Windows.Media;
 
-namespace NESCS.GUI
+namespace NESCS.GUI.DebugWindows
 {
-    public enum AudioChannel
-    {
-        Mix,
-        Pulse1,
-        Pulse2,
-        Triangle,
-        Noise,
-        Dmc
-    }
-
     /// <summary>
     /// Interaction logic for AudioDebugWindow.xaml
     /// </summary>

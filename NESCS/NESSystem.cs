@@ -49,6 +49,7 @@ namespace NESCS
 
         public readonly APU ApuCore;
 
+        public event Action<NESSystem>? VerticalBlankStart;
         public event Action<NESSystem>? FrameComplete;
 
         // This is floating point to account for clocks (like PAL)
@@ -61,6 +62,8 @@ namespace NESCS
             SystemMemory = new Memory(this);
             CpuCore = new CPU(SystemMemory);
             ApuCore = new APU(this);
+
+            PpuCore.VerticalBlankStart += PpuCore_VerticalBlankStart;
         }
 
         /// <summary>
@@ -140,6 +143,11 @@ namespace NESCS
                 apuTotalTime,
                 callbackTotalTime,
                 Stopwatch.GetElapsedTime(frameStartTime));
+        }
+
+        private void PpuCore_VerticalBlankStart()
+        {
+            VerticalBlankStart?.Invoke(this);
         }
     }
 }

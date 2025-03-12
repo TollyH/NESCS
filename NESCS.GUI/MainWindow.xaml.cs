@@ -24,7 +24,7 @@ namespace NESCS.GUI
         private readonly Controllers.StandardController controller = new();
 
         private readonly WriteableBitmap nesDisplayBitmap = new(
-            PPU.VisibleCyclesPerFrame,
+            PPU.VisibleCyclesPerScanline,
             PPU.VisibleScanlinesPerFrame,
             96,
             96,
@@ -38,11 +38,12 @@ namespace NESCS.GUI
 
         private CancellationTokenSource emulationCancellationTokenSource = new();
 
-        private PerformanceDebugWindow? performanceDebugWindow;
-        private AudioDebugWindow? audioDebugWindow;
+        private DebugWindows.PerformanceDebugWindow? performanceDebugWindow;
+        private DebugWindows.AudioDebugWindow? audioDebugWindow;
+        private DebugWindows.NametableDebugWindow? nametableDebugWindow;
 
         private static readonly Int32Rect displayRect =
-            new(0, 0, PPU.VisibleCyclesPerFrame, PPU.VisibleScanlinesPerFrame);
+            new(0, 0, PPU.VisibleCyclesPerScanline, PPU.VisibleScanlinesPerFrame);
 
         public MainWindow()
         {
@@ -51,6 +52,7 @@ namespace NESCS.GUI
                 ControllerOne = controller
             };
             EmulatedNesSystem.FrameComplete += EmulatedNesSystem_FrameComplete;
+            EmulatedNesSystem.VerticalBlankStart += EmulatedNesSystem_VerticalBlankStart;
 
             InitializeComponent();
 
@@ -137,7 +139,7 @@ namespace NESCS.GUI
 
         public void SetDisplayScale(double scale)
         {
-            nesDisplay.Width = scale * PPU.VisibleCyclesPerFrame;
+            nesDisplay.Width = scale * PPU.VisibleCyclesPerScanline;
             nesDisplay.Height = scale * PPU.VisibleScanlinesPerFrame;
         }
 
@@ -176,38 +178,21 @@ namespace NESCS.GUI
             LoadROMFile(dialog.FileName, reset);
         }
 
-        private void OpenPerformanceDebugWindow()
+        private void OpenDebugWindow<T>(ref T? debugWindow, EventHandler closedEventHandler) where T : Window, new()
         {
-            if (performanceDebugWindow is not null)
+            if (debugWindow is not null)
             {
-                // Timing debug window is already open, focus it instead.
-                performanceDebugWindow.Focus();
+                // Debug window is already open, focus it instead.
+                debugWindow.Focus();
                 return;
             }
 
-            performanceDebugWindow = new PerformanceDebugWindow()
+            debugWindow = new T()
             {
                 Owner = this
             };
-            performanceDebugWindow.Closed += performanceDebugWindow_Closed;
-            performanceDebugWindow.Show();
-        }
-
-        private void OpenAudioDebugWindow()
-        {
-            if (audioDebugWindow is not null)
-            {
-                // Audio debug window is already open, focus it instead.
-                audioDebugWindow.Focus();
-                return;
-            }
-
-            audioDebugWindow = new AudioDebugWindow()
-            {
-                Owner = this
-            };
-            audioDebugWindow.Closed += audioDebugWindow_Closed;
-            audioDebugWindow.Show();
+            debugWindow.Closed += closedEventHandler;
+            debugWindow.Show();
         }
 
         private void EmulationThreadStart()
@@ -280,6 +265,19 @@ namespace NESCS.GUI
             catch (TaskCanceledException) { }
         }
 
+        private void EmulatedNesSystem_VerticalBlankStart(NESSystem nesSystem)
+        {
+            if (nametableDebugWindow is not null)
+            {
+                try
+                {
+                    Dispatcher.Invoke(() => nametableDebugWindow.UpdateDisplay(nesSystem),
+                        DispatcherPriority.Render, emulationCancellationTokenSource.Token);
+                }
+                catch (TaskCanceledException) { }
+            }
+        }
+
         private void ScaleItem_Click(object sender, RoutedEventArgs e)
         {
             foreach (MenuItem item in scaleMenuItem.Items.OfType<MenuItem>())
@@ -323,10 +321,13 @@ namespace NESCS.GUI
                     break;
                 // Debug shortcuts
                 case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                    OpenPerformanceDebugWindow();
+                    OpenDebugWindow(ref performanceDebugWindow, performanceDebugWindow_Closed);
                     break;
                 case Key.A when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
-                    OpenAudioDebugWindow();
+                    OpenDebugWindow(ref audioDebugWindow, audioDebugWindow_Closed);
+                    break;
+                case Key.N when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                    OpenDebugWindow(ref nametableDebugWindow, nametableDebugWindow_Closed);
                     break;
                 // Controller input
                 // TODO: Make configurable
@@ -420,14 +421,19 @@ namespace NESCS.GUI
             ResetEmulation(true);
         }
 
+        private void OpenNametableDebugItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenDebugWindow(ref nametableDebugWindow, nametableDebugWindow_Closed);
+        }
+
         private void OpenPerformanceDebugItem_Click(object sender, RoutedEventArgs e)
         {
-            OpenPerformanceDebugWindow();
+            OpenDebugWindow(ref performanceDebugWindow, performanceDebugWindow_Closed);
         }
 
         private void OpenAudioDebugItem_Click(object sender, RoutedEventArgs e)
         {
-            OpenAudioDebugWindow();
+            OpenDebugWindow(ref audioDebugWindow, audioDebugWindow_Closed);
         }
 
         private void FrameStepItem_Click(object sender, RoutedEventArgs e)
@@ -448,6 +454,11 @@ namespace NESCS.GUI
         private void audioDebugWindow_Closed(object? sender, EventArgs e)
         {
             audioDebugWindow = null;
+        }
+
+        private void nametableDebugWindow_Closed(object? sender, EventArgs e)
+        {
+            nametableDebugWindow = null;
         }
     }
 }
