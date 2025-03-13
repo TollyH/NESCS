@@ -277,13 +277,15 @@
             if (FineYScroll == 0)
             {
                 CoarseYScroll++;
-                if (CoarseYScroll >= 30)
+                if (CoarseYScroll >= PPU.VisibleScanlinesPerFrame / 8)
                 {
-                    CoarseYScroll = 0;
-                    if (CoarseYScroll == 30)
+                    // The current vertical nametable is only overflowed if Coarse Y scroll is exactly at the wraparound point.
+                    // Anything over will be set back to 0 but not update the current nametable.
+                    if (CoarseYScroll == PPU.VisibleScanlinesPerFrame / 8)
                     {
                         UseSecondVerticalNametable = !UseSecondVerticalNametable;
                     }
+                    CoarseYScroll = 0;
                 }
             }
         }
