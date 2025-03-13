@@ -134,7 +134,7 @@
         {
             return address switch
             {
-                <= 0x1FFF => ChrRom[GetBankedChrRomAddress(address)],
+                <= 0x1FFF => ChrRom[GetBankedChrRomAddress(address) % ChrRom.Length],
                 <= 0x3EFF => nesSystem.SystemMemory.CiRam[GetMirroredCiRamAddress(address)],
                 _ => (byte)(address >> 8)  // Open bus
             };
