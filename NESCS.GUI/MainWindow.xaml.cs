@@ -271,7 +271,7 @@ namespace NESCS.GUI
             {
                 try
                 {
-                    Dispatcher.Invoke(() => nametableDebugWindow.UpdateDisplay(nesSystem),
+                    Dispatcher.Invoke(() => nametableDebugWindow?.UpdateDisplay(nesSystem),
                         DispatcherPriority.Render, emulationCancellationTokenSource.Token);
                 }
                 catch (TaskCanceledException) { }

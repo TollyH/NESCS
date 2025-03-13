@@ -45,15 +45,35 @@ namespace NESCS.GUI.DebugWindows
 
             scrollOverlay.Margin = new Thickness(scrollX + nametableX, scrollY + nametableY, 0, 0);
 
-            // Scroll region has partially wrapped around the screen, so a second rectangle is used to show the wrapped around portion
-            if (rightNametables || bottomNametables)
+            // If scroll region has partially wrapped around the screen, multiple rectangles are used to show the wrapped around portion(s)
+            if (rightNametables)
             {
-                scrollOverlayWraparound.Visibility = Visibility.Visible;
-                scrollOverlayWraparound.Margin = new Thickness(scrollX - nametableX, scrollY - nametableY, 0, 0);
+                scrollOverlayWraparoundHorizontal.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundHorizontal.Margin = new Thickness(scrollX - nametableX, scrollY + nametableY, 0, 0);
             }
             else
             {
-                scrollOverlayWraparound.Visibility = Visibility.Collapsed;
+                scrollOverlayWraparoundHorizontal.Visibility = Visibility.Collapsed;
+            }
+
+            if (bottomNametables)
+            {
+                scrollOverlayWraparoundVertical.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundVertical.Margin = new Thickness(scrollX + nametableX, scrollY - nametableY, 0, 0);
+            }
+            else
+            {
+                scrollOverlayWraparoundVertical.Visibility = Visibility.Collapsed;
+            }
+
+            if (bottomNametables && rightNametables)
+            {
+                scrollOverlayWraparoundBoth.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundBoth.Margin = new Thickness(scrollX - nametableX, scrollY - nametableY, 0, 0);
+            }
+            else
+            {
+                scrollOverlayWraparoundBoth.Visibility = Visibility.Collapsed;
             }
 
             DrawNametables(nesSystem.PpuCore);

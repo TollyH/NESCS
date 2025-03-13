@@ -13,7 +13,9 @@
                 <Rectangle HorizontalAlignment="Center" Width="1" Fill="Gray"/>
                 <Rectangle VerticalAlignment="Center" Height="1" Fill="Gray"/>
                 <Rectangle x:Name="scrollOverlay" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Rectangle x:Name="scrollOverlayWraparound" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Rectangle x:Name="scrollOverlayWraparoundHorizontal" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Rectangle x:Name="scrollOverlayWraparoundVertical" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Rectangle x:Name="scrollOverlayWraparoundBoth" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             </Grid>
         </Border>
     </Grid>
