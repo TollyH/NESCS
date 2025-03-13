@@ -69,6 +69,8 @@
         /// </summary>
         public readonly List<float> OutputSamples = new();
 
+        private int cyclesUntilTimerReset = 0;
+
         private readonly NESSystem nesSystem;
 
         public APU(NESSystem nesSystem)
@@ -124,6 +126,14 @@
             CurrentCycle++;
         }
 
+        /// <summary>
+        /// Reset the current cycle counter after a 3/4 CPU cycle delay.
+        /// </summary>
+        public void ResetCurrentCycle()
+        {
+            cyclesUntilTimerReset = CurrentCycle % 2 == 0 ? 4 : 3;
+        }
+
         private float GetMixedOutputSample()
         {
             // These formulas replicate the weighting that the real NES puts on each channel in the final mix.
@@ -166,7 +176,8 @@
                 Registers.StatusControl |= StatusControlFlags.FrameInterrupt;
             }
 
-            if (CurrentCycle >= currentTiming.Step6Cycle)
+            if ((cyclesUntilTimerReset > 0 && --cyclesUntilTimerReset == 0)
+                || CurrentCycle >= currentTiming.Step6Cycle)
             {
                 CurrentCycle = 0;
             }

@@ -171,6 +171,7 @@
                         break;
                     case MappedFrameCounterAddress:
                         FrameCounter = (FrameCounterFlags)value;
+                        nesSystem.ApuCore.ResetCurrentCycle();
                         break;
                 }
             }
