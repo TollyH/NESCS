@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -43,13 +44,15 @@ namespace NESCS.GUI.DebugWindows
             int nametableX = rightNametables ? PPU.VisibleCyclesPerScanline : 0;
             int nametableY = bottomNametables ? PPU.VisibleScanlinesPerFrame : 0;
 
-            scrollOverlay.Margin = new Thickness(scrollX + nametableX, scrollY + nametableY, 0, 0);
+            Canvas.SetLeft(scrollOverlay, scrollX + nametableX);
+            Canvas.SetTop(scrollOverlay, scrollY + nametableY);
 
             // If scroll region has partially wrapped around the screen, multiple rectangles are used to show the wrapped around portion(s)
             if (rightNametables)
             {
                 scrollOverlayWraparoundHorizontal.Visibility = Visibility.Visible;
-                scrollOverlayWraparoundHorizontal.Margin = new Thickness(scrollX - nametableX, scrollY + nametableY, 0, 0);
+                Canvas.SetLeft(scrollOverlayWraparoundHorizontal, scrollX - nametableX);
+                Canvas.SetTop(scrollOverlayWraparoundHorizontal, scrollY + nametableY);
             }
             else
             {
@@ -59,7 +62,8 @@ namespace NESCS.GUI.DebugWindows
             if (bottomNametables)
             {
                 scrollOverlayWraparoundVertical.Visibility = Visibility.Visible;
-                scrollOverlayWraparoundVertical.Margin = new Thickness(scrollX + nametableX, scrollY - nametableY, 0, 0);
+                Canvas.SetLeft(scrollOverlayWraparoundVertical, scrollX + nametableX);
+                Canvas.SetTop(scrollOverlayWraparoundVertical, scrollY - nametableY);
             }
             else
             {
@@ -69,7 +73,8 @@ namespace NESCS.GUI.DebugWindows
             if (bottomNametables && rightNametables)
             {
                 scrollOverlayWraparoundBoth.Visibility = Visibility.Visible;
-                scrollOverlayWraparoundBoth.Margin = new Thickness(scrollX - nametableX, scrollY - nametableY, 0, 0);
+                Canvas.SetLeft(scrollOverlayWraparoundBoth, scrollX - nametableX);
+                Canvas.SetTop(scrollOverlayWraparoundBoth, scrollY - nametableY);
             }
             else
             {
@@ -115,7 +120,10 @@ namespace NESCS.GUI.DebugWindows
                     // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
                     int bgPalette = (attributeByte >> (((xPos & 0b10000) >> 3) | (((yPos / 8) & 0b10) << 1))) & 0b11;
 
-                    int paletteIndex = ppu[(ushort)(PPU.PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
+                    int paletteIndex = (!showTruePaletteEntries.IsChecked ?? false) && bgPaletteIndex == 0
+                        // Use backdrop colour
+                        ? ppu[PPU.PaletteRAMStartAddress]
+                        : ppu[(ushort)(PPU.PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
 
                     int pixelIndex = yPos * DisplayWidth + xPos;
                     if (nametable % 2 != 0)
@@ -137,6 +145,13 @@ namespace NESCS.GUI.DebugWindows
             nametableBitmap.AddDirtyRect(new Int32Rect(0, 0, nametableBitmap.PixelWidth, nametableBitmap.PixelHeight));
 
             nametableBitmap.Unlock();
+        }
+
+        private void scrollOverlayVisible_Checked(object sender, RoutedEventArgs e)
+        {
+            scrollOverlayContainer.Visibility = scrollOverlayVisible.IsChecked ?? false
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
     }
 }

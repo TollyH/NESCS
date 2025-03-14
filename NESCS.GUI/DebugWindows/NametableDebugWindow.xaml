@@ -7,16 +7,26 @@
         mc:Ignorable="d"
         Title="Nametable Debug" SizeToContent="WidthAndHeight" ResizeMode="NoResize" UseLayoutRounding="True" Icon="pack://application:,,,/Resources/MenuIcons/map.png">
     <Grid>
-        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" BorderThickness="1" BorderBrush="Black">
-            <Grid x:Name="displayContainer" ClipToBounds="True">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Margin="10" BorderThickness="1" BorderBrush="Black">
+            <Grid x:Name="displayContainer">
                 <Image x:Name="nametableDisplay"/>
                 <Rectangle HorizontalAlignment="Center" Width="1" Fill="Gray"/>
                 <Rectangle VerticalAlignment="Center" Height="1" Fill="Gray"/>
-                <Rectangle x:Name="scrollOverlay" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Rectangle x:Name="scrollOverlayWraparoundHorizontal" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Rectangle x:Name="scrollOverlayWraparoundVertical" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Rectangle x:Name="scrollOverlayWraparoundBoth" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Canvas x:Name="scrollOverlayContainer" ClipToBounds="True">
+                    <Rectangle x:Name="scrollOverlay" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    <Rectangle x:Name="scrollOverlayWraparoundHorizontal" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    <Rectangle x:Name="scrollOverlayWraparoundVertical" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    <Rectangle x:Name="scrollOverlayWraparoundBoth" Visibility="Collapsed" StrokeThickness="2" Stroke="Magenta" Fill="#22FF00FF" Width="256" Height="240" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                </Canvas>
             </Grid>
         </Border>
+        <StackPanel Grid.Column="1">
+            <CheckBox x:Name="scrollOverlayVisible" Margin="10,10,10,5" Content="Show visible scroll area" IsChecked="True" Checked="scrollOverlayVisible_Checked" Unchecked="scrollOverlayVisible_Checked"/>
+            <CheckBox x:Name="showTruePaletteEntries" Margin="10,5" Content="Show true palette colours" IsChecked="False"/>
+        </StackPanel>
     </Grid>
 </Window>
