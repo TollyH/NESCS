@@ -60,7 +60,7 @@
 
         public int ScanlinesPerFrame { get; }
 
-        public bool OddFrame { get; private set; } = false;
+        public bool OddFrame { get; private set; } = true;
 
         public int Scanline { get; private set; }
         public int Cycle { get; private set; }
@@ -184,7 +184,7 @@
 
             Registers.readBuffer = 0;
 
-            OddFrame = false;
+            OddFrame = true;
 
             Scanline = 0;
             Cycle = 0;
@@ -211,7 +211,7 @@
             Cycle++;
             if (Cycle >= CyclesPerScanline
                 // Every other frame skips the last cycle of the pre-render scanline
-                || (OddFrame && Scanline == -1 && Cycle == CyclesPerScanline - 1))
+                || (OddFrame && Scanline == -1 && Cycle == CyclesPerScanline - 1 && IsRenderingEnabled))
             {
                 Cycle = 0;
                 Scanline++;
@@ -260,15 +260,6 @@
 
                     if (!IsRenderingEnabled)
                     {
-                        if (Scanline is >= 0 and < VisibleScanlinesPerFrame
-                            && Cycle is >= 1 and <= VisibleCyclesPerScanline)
-                        {
-                            // The colour displayed when rendering is disabled is usually the backdrop colour,
-                            // unless V is currently in palette RAM in which case that colour is used
-                            OutputPixels[Scanline, Cycle - 1] = Registers.V is >= PaletteRAMStartAddress and <= PaletteRAMEndAddress
-                                ? CurrentPalette[this[Registers.V]]
-                                : CurrentPalette[this[PaletteRAMStartAddress]];
-                        }
                         return;
                     }
 
@@ -499,91 +490,102 @@
 
         private void RenderDot()
         {
-            int screenXPosition = Cycle - 1;
-
-            int coarseTileXPosition = fetchedBackgroundData[0].CoarseXScroll * 8;
-            int fineTileXPosition = coarseTileXPosition + Registers.X + (screenXPosition & 0b111);
-
-            int bgPaletteIndex = 0;
-            int bgPalette = 0;
-            if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0 &&
-                (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.BackgroundLeftColumnEnable) != 0))
-            {
-                // If fine X scroll has moved into the next tile, use that data instead
-                FetchedBackgroundData backgroundData = (fineTileXPosition & 0b1000) != (coarseTileXPosition & 0b1000)
-                    ? fetchedBackgroundData[1]
-                    : fetchedBackgroundData[0];
-
-                // Left most (first) pixel is stored in most significant (last) bit
-                int bgXOffset = ~fineTileXPosition & 0b111;
-                int bgBit = 1 << bgXOffset;
-                bgPaletteIndex = ((backgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
-                    | (((backgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
-
-                // Get the current 16x16 quadrant from the 32x32 attribute data
-                // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
-                bgPalette = (backgroundData.AttributeTableData >> (((fineTileXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
-            }
-
-            int spritePaletteIndex = 0;
-            bool spriteBehindBackground = false;
-            int spritePalette = 0;
-            if ((Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0 &&
-                (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.SpriteLeftColumnEnable) != 0))
-            {
-                for (int spriteIndex = 0; spriteIndex < pendingSpriteCount; spriteIndex++)
-                {
-                    FetchedSpriteData spriteData = pendingSpriteData[spriteIndex];
-
-                    if (screenXPosition - spriteData.XPosition is < 0 or >= 8)
-                    {
-                        // Sprite out of horizontal range
-                        continue;
-                    }
-
-                    // Left most (first) pixel is stored in most significant (last) bit
-                    int spriteXOffset = ~(screenXPosition - spriteData.XPosition) & 0b111;
-                    if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
-                    {
-                        // Flip horizontally
-                        spriteXOffset ^= 0b111;
-                    }
-                    int spriteBit = 1 << spriteXOffset;
-                    spritePaletteIndex = ((spriteData.PatternTableDataLow & spriteBit) >> spriteXOffset)
-                        | (((spriteData.PatternTableDataHigh & spriteBit) >> spriteXOffset) << 1);
-
-                    if (spritePaletteIndex != 0)
-                    {
-                        if (spriteIndex == 0 && firstSpriteIsSpriteZero && bgPaletteIndex != 0
-                            && Cycle is >= SpriteZeroHitStartCycle and <= SpriteZeroHitEndCycle)
-                        {
-                            Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteZeroHit;
-                        }
-                        spriteBehindBackground = (spriteData.SpriteAttributeData & 0b100000) != 0;
-                        spritePalette = spriteData.SpriteAttributeData & 0b11;
-                        // First sprites in memory take priority. This pixel was not transparent, so no more sprites need to be evaluated.
-                        // Upholds the sprite priority quirk.
-                        break;
-                    }
-                }
-            }
-
-            // Palette indices of 0 are always transparent regardless of the contents of palette RAM at the corresponding address
             int paletteIndexToRender;
-            if (bgPaletteIndex != 0 && (spriteBehindBackground || spritePaletteIndex == 0))
+            if (!IsRenderingEnabled)
             {
-                // Background has priority
-                paletteIndexToRender = this[(ushort)(PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
-            }
-            else if (spritePaletteIndex != 0)
-            {
-                // Sprite has priority
-                paletteIndexToRender = this[(ushort)(PaletteRAMStartAddress + (0b10000 | (spritePalette << 2) | spritePaletteIndex))];
+                // The colour displayed when rendering is disabled is usually the backdrop colour,
+                // unless V is currently in palette RAM in which case that colour is used
+                paletteIndexToRender = Registers.V is >= PaletteRAMStartAddress and <= PaletteRAMEndAddress
+                    ? this[Registers.V]
+                    : this[PaletteRAMStartAddress];
             }
             else
             {
-                // Neither background nor sprite are present on pixel - use backdrop colour
-                paletteIndexToRender = this[PaletteRAMStartAddress];
+                int screenXPosition = Cycle - 1;
+
+                int coarseTileXPosition = fetchedBackgroundData[0].CoarseXScroll * 8;
+                int fineTileXPosition = coarseTileXPosition + Registers.X + (screenXPosition & 0b111);
+
+                int bgPaletteIndex = 0;
+                int bgPalette = 0;
+                if ((Registers.PPUMASK & PPUMASKFlags.BackgroundEnable) != 0 &&
+                    (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.BackgroundLeftColumnEnable) != 0))
+                {
+                    // If fine X scroll has moved into the next tile, use that data instead
+                    FetchedBackgroundData backgroundData = (fineTileXPosition & 0b1000) != (coarseTileXPosition & 0b1000)
+                        ? fetchedBackgroundData[1]
+                        : fetchedBackgroundData[0];
+
+                    // Left most (first) pixel is stored in most significant (last) bit
+                    int bgXOffset = ~fineTileXPosition & 0b111;
+                    int bgBit = 1 << bgXOffset;
+                    bgPaletteIndex = ((backgroundData.PatternTableDataLow & bgBit) >> bgXOffset)
+                        | (((backgroundData.PatternTableDataHigh & bgBit) >> bgXOffset) << 1);
+
+                    // Get the current 16x16 quadrant from the 32x32 attribute data
+                    // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
+                    bgPalette = (backgroundData.AttributeTableData >> (((fineTileXPosition & 0b10000) >> 3) | ((Registers.CoarseYScroll & 0b10) << 1))) & 0b11;
+                }
+
+                int spritePaletteIndex = 0;
+                bool spriteBehindBackground = false;
+                int spritePalette = 0;
+                if ((Registers.PPUMASK & PPUMASKFlags.SpriteEnable) != 0 &&
+                    (Cycle > 8 || (Registers.PPUMASK & PPUMASKFlags.SpriteLeftColumnEnable) != 0))
+                {
+                    for (int spriteIndex = 0; spriteIndex < pendingSpriteCount; spriteIndex++)
+                    {
+                        FetchedSpriteData spriteData = pendingSpriteData[spriteIndex];
+
+                        if (screenXPosition - spriteData.XPosition is < 0 or >= 8)
+                        {
+                            // Sprite out of horizontal range
+                            continue;
+                        }
+
+                        // Left most (first) pixel is stored in most significant (last) bit
+                        int spriteXOffset = ~(screenXPosition - spriteData.XPosition) & 0b111;
+                        if ((spriteData.SpriteAttributeData & 0b1000000) != 0)
+                        {
+                            // Flip horizontally
+                            spriteXOffset ^= 0b111;
+                        }
+                        int spriteBit = 1 << spriteXOffset;
+                        spritePaletteIndex = ((spriteData.PatternTableDataLow & spriteBit) >> spriteXOffset)
+                            | (((spriteData.PatternTableDataHigh & spriteBit) >> spriteXOffset) << 1);
+
+                        if (spritePaletteIndex != 0)
+                        {
+                            if (spriteIndex == 0 && firstSpriteIsSpriteZero && bgPaletteIndex != 0
+                                && Cycle is >= SpriteZeroHitStartCycle and <= SpriteZeroHitEndCycle)
+                            {
+                                Registers.PPUSTATUS |= PPUSTATUSFlags.SpriteZeroHit;
+                            }
+                            spriteBehindBackground = (spriteData.SpriteAttributeData & 0b100000) != 0;
+                            spritePalette = spriteData.SpriteAttributeData & 0b11;
+                            // First sprites in memory take priority. This pixel was not transparent, so no more sprites need to be evaluated.
+                            // Upholds the sprite priority quirk.
+                            break;
+                        }
+                    }
+                }
+
+                // Palette indices of 0 are always transparent regardless of the contents of palette RAM at the corresponding address
+                if (bgPaletteIndex != 0 && (spriteBehindBackground || spritePaletteIndex == 0))
+                {
+                    // Background has priority
+                    paletteIndexToRender = this[(ushort)(PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
+                }
+                else if (spritePaletteIndex != 0)
+                {
+                    // Sprite has priority
+                    paletteIndexToRender = this[(ushort)(PaletteRAMStartAddress + (0b10000 | (spritePalette << 2) | spritePaletteIndex))];
+                }
+                else
+                {
+                    // Neither background nor sprite are present on pixel - use backdrop colour
+                    paletteIndexToRender = this[PaletteRAMStartAddress];
+                }
             }
 
             if ((Registers.PPUMASK & PPUMASKFlags.Greyscale) != 0)
