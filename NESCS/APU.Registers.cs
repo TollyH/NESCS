@@ -102,9 +102,11 @@
                         break;
                     case MappedPulse1TimerLowAddress:
                         Pulse1Registers.TimerLow = value;
+                        nesSystem.ApuCore.Pulse1.UpdateSweepTargetPeriod();
                         break;
                     case MappedPulse1LengthTimerHighAddress:
                         Pulse1Registers.LengthTimerHigh = value;
+                        nesSystem.ApuCore.Pulse1.UpdateSweepTargetPeriod();
                         nesSystem.ApuCore.Pulse1.OnLengthCounterLoadWrite();
                         break;
                     // Pulse 2
@@ -117,9 +119,11 @@
                         break;
                     case MappedPulse2TimerLowAddress:
                         Pulse2Registers.TimerLow = value;
+                        nesSystem.ApuCore.Pulse2.UpdateSweepTargetPeriod();
                         break;
                     case MappedPulse2LengthTimerHighAddress:
                         Pulse2Registers.LengthTimerHigh = value;
+                        nesSystem.ApuCore.Pulse2.UpdateSweepTargetPeriod();
                         nesSystem.ApuCore.Pulse2.OnLengthCounterLoadWrite();
                         break;
                     // Triangle
@@ -222,16 +226,16 @@
 
         public bool ConstantVolume
         {
-            get => (SoundConfig & 0b00100000) != 0;
+            get => (SoundConfig & 0b00010000) != 0;
             set
             {
                 if (value)
                 {
-                    SoundConfig |= 0b00100000;
+                    SoundConfig |= 0b00010000;
                 }
                 else
                 {
-                    SoundConfig &= 0b11011111;
+                    SoundConfig &= 0b11101111;
                 }
             }
         }
@@ -282,8 +286,8 @@
 
         public byte SweepShiftCount
         {
-            get => (byte)(SoundConfig & 0b00000111);
-            set => SoundConfig = (byte)((SoundConfig & 0b11111000) | (value & 0b00000111));
+            get => (byte)(Sweep & 0b00000111);
+            set => Sweep = (byte)((Sweep & 0b11111000) | (value & 0b00000111));
         }
 
         public ushort Timer
@@ -376,16 +380,16 @@
 
         public bool ConstantVolume
         {
-            get => (SoundConfig & 0b00100000) != 0;
+            get => (SoundConfig & 0b00010000) != 0;
             set
             {
                 if (value)
                 {
-                    SoundConfig |= 0b00100000;
+                    SoundConfig |= 0b00010000;
                 }
                 else
                 {
-                    SoundConfig &= 0b11011111;
+                    SoundConfig &= 0b11101111;
                 }
             }
         }

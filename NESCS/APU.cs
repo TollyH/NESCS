@@ -272,11 +272,6 @@
 
         public virtual void OnLengthCounterLoadWrite()
         {
-            if (Registers.HaltLengthCounter)
-            {
-                return;
-            }
-
             lengthCounter = APU.LengthCounterLoadTable[Registers.LengthCounterReload];
         }
     }
@@ -320,11 +315,11 @@
                 if (envelopeDecayLevel > 0)
                 {
                     envelopeDecayLevel--;
-                    // Length counter halt being active also activates the envelope loop mode
-                    if (envelopeDecayLevel == 0 && Registers.HaltLengthCounter)
-                    {
-                        envelopeDecayLevel = envelopeDecayValueReset;
-                    }
+                }
+                // Length counter halt being active also activates the envelope loop mode
+                else if (Registers.HaltLengthCounter)
+                {
+                    envelopeDecayLevel = envelopeDecayValueReset;
                 }
             }
         }
@@ -375,6 +370,8 @@
                 Registers.TimerLow = 0;
                 Registers.LengthTimerHigh = 0;
             }
+
+            UpdateSweepTargetPeriod();
         }
 
         protected override byte GetSampleLogic()
@@ -393,23 +390,6 @@
 
             if (oddClock)
             {
-                int sweepChange = timer >> Registers.SweepShiftCount;
-                if (Registers.SweepNegate)
-                {
-                    if (twosComplementSweep)
-                    {
-                        // NEGATE = two's complement (used by Pulse 2)
-                        sweepChange = -sweepChange;
-                    }
-                    else
-                    {
-                        // NOT = one's complement (used by Pulse 1)
-                        sweepChange = ~sweepChange;
-                    }
-                }
-                sweepChange += timer;
-                sweepTargetPeriod = (ushort)(sweepChange < 0 ? 0 : sweepChange);
-
                 if (--timer < 0)
                 {
                     // Timer wraps around from 0 to the current Timer register value.
@@ -429,6 +409,7 @@
             if (Registers.SweepEnabled && sweepDivider == 0 && Registers.SweepShiftCount != 0 && !isMuted)
             {
                 Registers.Timer = sweepTargetPeriod;
+                UpdateSweepTargetPeriod();
             }
 
             if (sweepReloadFlag || sweepDivider == 0)
@@ -452,6 +433,26 @@
         public void OnSweepWrite()
         {
             sweepReloadFlag = true;
+        }
+
+        public void UpdateSweepTargetPeriod()
+        {
+            int sweepChange = Registers.Timer >> Registers.SweepShiftCount;
+            if (Registers.SweepNegate)
+            {
+                if (twosComplementSweep)
+                {
+                    // NEGATE = two's complement (used by Pulse 2)
+                    sweepChange = -sweepChange;
+                }
+                else
+                {
+                    // NOT = one's complement (used by Pulse 1)
+                    sweepChange = ~sweepChange;
+                }
+            }
+            sweepChange += Registers.Timer;
+            sweepTargetPeriod = (ushort)(sweepChange < 0 ? 0 : sweepChange);
         }
     }
 
