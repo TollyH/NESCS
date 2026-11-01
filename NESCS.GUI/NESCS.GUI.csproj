@@ -16,11 +16,14 @@
     <RepositoryUrl>https://github.com/TollyH/NESCS</RepositoryUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <NoWarn>AVLN3001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="Resources\**\*.png" />
     <AvaloniaResource Include="Resources\**\*.png" />
+    <None Remove="Resources\*.png" />
+    <AvaloniaResource Include="Resources\*.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,7 +31,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

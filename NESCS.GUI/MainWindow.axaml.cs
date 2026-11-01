@@ -1,14 +1,11 @@
-﻿using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
-using Microsoft.Win32;
-using NAudio.CoreAudioApi;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 namespace NESCS.GUI
 {
@@ -24,14 +21,10 @@ namespace NESCS.GUI
         private readonly Controllers.StandardController controller = new();
 
         private readonly WriteableBitmap nesDisplayBitmap = new(
-            PPU.VisibleCyclesPerScanline,
-            PPU.VisibleScanlinesPerFrame,
-            96,
-            96,
-            PixelFormats.Rgb24,
-            null);
+            new PixelSize(PPU.VisibleCyclesPerScanline, PPU.VisibleScanlinesPerFrame),
+            new Vector(96, 96),
+            PixelFormats.Rgb24);
 
-        private DirectSoundOut? audioOutputDevice;
         private BufferedSampleProvider? sampleProvider;
 
         private Thread? emulationThread = null;
@@ -41,9 +34,6 @@ namespace NESCS.GUI
         private DebugWindows.PerformanceDebugWindow? performanceDebugWindow;
         private DebugWindows.AudioDebugWindow? audioDebugWindow;
         private DebugWindows.NametableDebugWindow? nametableDebugWindow;
-
-        private static readonly Int32Rect displayRect =
-            new(0, 0, PPU.VisibleCyclesPerScanline, PPU.VisibleScanlinesPerFrame);
 
         public MainWindow()
         {
@@ -59,22 +49,11 @@ namespace NESCS.GUI
             nesDisplay.Source = nesDisplayBitmap;
             SetDisplayScale(1.0);
 
-            // Check that an audio output device exists before setting up audio
-            using MMDeviceEnumerator audioDeviceEnumerator = new();
-            if (audioDeviceEnumerator.HasDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+            // TODO: Reinitialise and update sample rate when changing clock/PPU timing
+            sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate)
             {
-                MMDevice outputDevice = audioDeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-
-                // TODO: Reinitialise and update sample rate when changing clock/PPU timing
-                sampleProvider = new BufferedSampleProvider(EmulatedNesSystem.AudioSampleRate)
-                {
-                    MaxBufferSize = EmulatedNesSystem.AudioSampleRate  // Limit the buffer to 1 second of data before old samples are dropped
-                };
-                WdlResamplingSampleProvider sampleConverter = new(sampleProvider, outputDevice.AudioClient.MixFormat.SampleRate);
-
-                audioOutputDevice = new DirectSoundOut();
-                audioOutputDevice.Init(sampleConverter);
-            }
+                MaxBufferSize = EmulatedNesSystem.AudioSampleRate  // Limit the buffer to 1 second of data before old samples are dropped
+            };
         }
 
         ~MainWindow()
@@ -86,7 +65,6 @@ namespace NESCS.GUI
         {
             GC.SuppressFinalize(this);
             StopEmulation();
-            audioOutputDevice?.Dispose();
         }
 
         public void StartEmulation()
@@ -143,7 +121,7 @@ namespace NESCS.GUI
             nesDisplay.Height = scale * PPU.VisibleScanlinesPerFrame;
         }
 
-        public void LoadROMFile(string file, bool reset)
+        public async Task LoadROMFile(string file, bool reset)
         {
             try
             {
@@ -156,26 +134,28 @@ namespace NESCS.GUI
             }
             catch (Exception exc)
             {
-                MessageBox.Show(this,
+                await new MessageBox(
                     $"An error occured loading the specified ROM file:\n{exc.Message}",
-                    "ROM Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    "ROM Load Error", MessageBoxButton.OK, MessageBoxImage.Error).ShowDialog(this);
             }
         }
 
-        private void PromptROMLoad(bool reset)
+        private async void PromptROMLoad(bool reset)
         {
-            OpenFileDialog dialog = new()
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
             {
-                CheckFileExists = true,
-                Filter = "NES ROM Files (*.nes)|*.nes"
-            };
+                FileTypeFilter = new List<FilePickerFileType>()
+                {
+                    new("NES ROM Files") { Patterns = new List<string>() { "*.nes" } }
+                }
+            });
 
-            if (!dialog.ShowDialog(this) ?? false)
+            if (files.Count == 0)
             {
                 return;
             }
 
-            LoadROMFile(dialog.FileName, reset);
+            await LoadROMFile(files[0].Path.LocalPath, reset);
         }
 
         private void OpenDebugWindow<T>(ref T? debugWindow, EventHandler closedEventHandler) where T : Window, new()
@@ -187,12 +167,9 @@ namespace NESCS.GUI
                 return;
             }
 
-            debugWindow = new T()
-            {
-                Owner = this
-            };
+            debugWindow = new T();
             debugWindow.Closed += closedEventHandler;
-            debugWindow.Show();
+            debugWindow.Show(this);
         }
 
         private void EmulationThreadStart()
@@ -202,20 +179,20 @@ namespace NESCS.GUI
 
         private unsafe void RenderDisplay(Color[,] pixels)
         {
-            nesDisplayBitmap.Lock();
-
-            Color* backBuffer = (Color*)nesDisplayBitmap.BackBuffer;
-            fixed (Color* outputPixels = pixels)
+            using (ILockedFramebuffer framebuffer = nesDisplayBitmap.Lock())
             {
-                for (int i = 0; i < pixels.Length; i++)
+
+                Color* backBuffer = (Color*)framebuffer.Address;
+                fixed (Color* outputPixels = pixels)
                 {
-                    backBuffer[i] = outputPixels[i];
+                    for (int i = 0; i < pixels.Length; i++)
+                    {
+                        backBuffer[i] = outputPixels[i];
+                    }
                 }
             }
 
-            nesDisplayBitmap.AddDirtyRect(displayRect);
-
-            nesDisplayBitmap.Unlock();
+            nesDisplay.InvalidateVisual();
         }
 
         private void EmulatedNesSystem_FrameComplete(NESSystem nesSystem)
@@ -232,12 +209,13 @@ namespace NESCS.GUI
                     RenderDisplay(nesSystem.PpuCore.OutputPixels);
 
                     // Don't render audio when stepping frames
+                    // TODO: Cross-plaform audio
                     if (EmulationRunning)
                     {
-                        if (audioDebugWindow is not null && sampleProvider is not null && audioOutputDevice is not null)
+                        if (audioDebugWindow is not null && sampleProvider is not null)
                         {
                             audioDebugWindow.UpdateDisplays(sampleProvider, nesSystem,
-                                nesSystem.ApuCore.OutputSamples.Count, audioOutputDevice.OutputWaveFormat.SampleRate);
+                                nesSystem.ApuCore.OutputSamples.Count, 0 /* FIXME */);
                             sampleProvider?.BufferSamples(audioDebugWindow.SelectedAudioChannel switch
                             {
                                 AudioChannel.Pulse1 => nesSystem.ApuCore.Pulse1.OutputSamples.Select(s => s / 30f),
@@ -252,7 +230,6 @@ namespace NESCS.GUI
                         {
                             sampleProvider?.BufferSamples(nesSystem.ApuCore.OutputSamples);
                         }
-                        audioOutputDevice?.Play();
                     }
 
                     // This will be the frame time of the last frame, not this one,
@@ -280,13 +257,6 @@ namespace NESCS.GUI
 
         private void ScaleItem_Click(object sender, RoutedEventArgs e)
         {
-            foreach (MenuItem item in scaleMenuItem.Items.OfType<MenuItem>())
-            {
-                // Scale menu items should behave like radio buttons,
-                // clicking on an item selects it and deselects everything else
-                item.IsChecked = item == sender;
-            }
-
             if (sender is MenuItem { IsChecked: true, Tag: double scale })
             {
                 SetDisplayScale(scale);
@@ -298,35 +268,35 @@ namespace NESCS.GUI
             switch (e.Key)
             {
                 // Emulator shortcuts
-                case Key.O when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
+                case Key.O when e.KeyModifiers == KeyModifiers.Control:
                     PromptROMLoad(true);
                     break;
-                case Key.O when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
+                case Key.O when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift):
                     PromptROMLoad(false);
                     break;
-                case Key.P when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
+                case Key.P when e.KeyModifiers == KeyModifiers.Control:
                     StartEmulation();
                     break;
-                case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
+                case Key.P when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift):
                     StopEmulation();
                     break;
-                case Key.R when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
+                case Key.R when e.KeyModifiers == KeyModifiers.Control:
                     ResetEmulation(false);
                     break;
-                case Key.R when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift):
+                case Key.R when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift):
                     ResetEmulation(true);
                     break;
-                case Key.OemPeriod when e.KeyboardDevice.Modifiers == ModifierKeys.Control:
+                case Key.OemPeriod when e.KeyModifiers == KeyModifiers.Control:
                     FrameStepEmulation();
                     break;
                 // Debug shortcuts
-                case Key.P when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                case Key.P when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt):
                     OpenDebugWindow(ref performanceDebugWindow, performanceDebugWindow_Closed);
                     break;
-                case Key.A when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                case Key.A when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt):
                     OpenDebugWindow(ref audioDebugWindow, audioDebugWindow_Closed);
                     break;
-                case Key.N when e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt):
+                case Key.N when e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt):
                     OpenDebugWindow(ref nametableDebugWindow, nametableDebugWindow_Closed);
                     break;
                 // Controller input

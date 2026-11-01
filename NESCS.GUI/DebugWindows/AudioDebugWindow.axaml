@@ -1,11 +1,10 @@
 ﻿<Window x:Class="NESCS.GUI.DebugWindows.AudioDebugWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:NESCS.GUI.DebugWindows"
         mc:Ignorable="d"
-        Title="Audio Debug" Width="650" Height="320" ResizeMode="CanMinimize" Icon="pack://application:,,,/Resources/MenuIcons/music-beam.png">
+        Title="Audio Debug" Width="650" Height="320" CanResize="False" Icon="pack://application:,,,/Resources/MenuIcons/music-beam.png">
     <Grid>
         <TextBlock x:Name="bufferSizeText" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Buffered Sample Count: 0" FontWeight="Bold" FontSize="24"/>
         <TextBlock x:Name="bufferLatencyText" Margin="10,45,10,10" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Buffer Read Latency: 0 ms" FontSize="20"/>

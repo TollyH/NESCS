@@ -1,5 +1,5 @@
-﻿using System.Windows;
-using System.Windows.Media;
+﻿using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace NESCS.GUI.DebugWindows
 {
@@ -48,10 +48,10 @@ namespace NESCS.GUI.DebugWindows
                 double overTime = system.LastFrameProcessTime.TotalTime.TotalMilliseconds - targetMsPerFrame;
 
                 targetHitText.Text = "Behind Target (Running Slow)";
-                targetHitText.Foreground = Brushes.DarkRed;
+                targetHitText.Foreground = Brushes.Red;
 
                 targetDetailText.Text = $"Taking {overTime:N1} ms ({overTime / targetMsPerFrame:P1}) too long";
-                targetDetailText.Foreground = Brushes.DarkRed;
+                targetDetailText.Foreground = Brushes.Red;
             }
 
             lagCounterText.Text = $"Delayed frames: {lagCounter}";
@@ -68,11 +68,11 @@ namespace NESCS.GUI.DebugWindows
             double callbackProportion = system.LastFrameProcessTime.FrameCompleteCallbackTime / system.LastClockTime;
             double otherProportion = otherTime / system.LastClockTime;
 
-            ppuTimeBar.Width = ppuProportion * barPanel.ActualWidth;
-            cpuTimeBar.Width = cpuProportion * barPanel.ActualWidth;
-            apuTimeBar.Width = apuProportion * barPanel.ActualWidth;
-            callbackTimeBar.Width = callbackProportion * barPanel.ActualWidth;
-            otherTimeBar.Width = otherProportion * barPanel.ActualWidth;
+            ppuTimeBar.Width = ppuProportion * barPanel.Bounds.Width;
+            cpuTimeBar.Width = cpuProportion * barPanel.Bounds.Width;
+            apuTimeBar.Width = apuProportion * barPanel.Bounds.Width;
+            callbackTimeBar.Width = callbackProportion * barPanel.Bounds.Width;
+            otherTimeBar.Width = otherProportion * barPanel.Bounds.Width;
 
             ppuTimeText.Text = $"{system.LastFrameProcessTime.PpuProcessTime.TotalMilliseconds:N1} ms ({ppuProportion:P1})";
             cpuTimeText.Text = $"{system.LastFrameProcessTime.CpuProcessTime.TotalMilliseconds:N1} ms ({cpuProportion:P1})";

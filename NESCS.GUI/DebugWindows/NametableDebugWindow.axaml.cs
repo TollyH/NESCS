@@ -1,14 +1,15 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace NESCS.GUI.DebugWindows
 {
     /// <summary>
     /// Interaction logic for NametableDebugWindow.xaml
     /// </summary>
-    public partial class NametableDebugWindow : Window
+    public partial class NametableDebugWindow : Window, IDisposable
     {
         public const int DisplayWidth = PPU.VisibleCyclesPerScanline * 2;
         public const int DisplayHeight = PPU.VisibleScanlinesPerFrame * 2;
@@ -20,7 +21,7 @@ namespace NESCS.GUI.DebugWindows
         private const int totalTableSize = nametableSize + attributeTableSize;
 
         private readonly WriteableBitmap nametableBitmap = new(
-            DisplayWidth, DisplayHeight, 96, 96, PixelFormats.Rgb24, null);
+            new PixelSize(DisplayWidth, DisplayHeight), new Vector(96, 96), PixelFormats.Rgb24);
 
         public NametableDebugWindow()
         {
@@ -31,6 +32,18 @@ namespace NESCS.GUI.DebugWindows
             nametableDisplay.Width = DisplayWidth;
             nametableDisplay.Height = DisplayHeight;
             nametableDisplay.Source = nametableBitmap;
+        }
+
+        ~NametableDebugWindow()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            nametableBitmap.Dispose();
+
+            GC.SuppressFinalize(this);
         }
 
         public void UpdateDisplay(NESSystem nesSystem)
@@ -50,35 +63,35 @@ namespace NESCS.GUI.DebugWindows
             // If scroll region has partially wrapped around the screen, multiple rectangles are used to show the wrapped around portion(s)
             if (rightNametables)
             {
-                scrollOverlayWraparoundHorizontal.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundHorizontal.IsVisible = true;
                 Canvas.SetLeft(scrollOverlayWraparoundHorizontal, scrollX - nametableX);
                 Canvas.SetTop(scrollOverlayWraparoundHorizontal, scrollY + nametableY);
             }
             else
             {
-                scrollOverlayWraparoundHorizontal.Visibility = Visibility.Collapsed;
+                scrollOverlayWraparoundHorizontal.IsVisible = false;
             }
 
             if (bottomNametables)
             {
-                scrollOverlayWraparoundVertical.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundVertical.IsVisible = true;
                 Canvas.SetLeft(scrollOverlayWraparoundVertical, scrollX + nametableX);
                 Canvas.SetTop(scrollOverlayWraparoundVertical, scrollY - nametableY);
             }
             else
             {
-                scrollOverlayWraparoundVertical.Visibility = Visibility.Collapsed;
+                scrollOverlayWraparoundVertical.IsVisible = false;
             }
 
             if (bottomNametables && rightNametables)
             {
-                scrollOverlayWraparoundBoth.Visibility = Visibility.Visible;
+                scrollOverlayWraparoundBoth.IsVisible = true;
                 Canvas.SetLeft(scrollOverlayWraparoundBoth, scrollX - nametableX);
                 Canvas.SetTop(scrollOverlayWraparoundBoth, scrollY - nametableY);
             }
             else
             {
-                scrollOverlayWraparoundBoth.Visibility = Visibility.Collapsed;
+                scrollOverlayWraparoundBoth.IsVisible = false;
             }
 
             DrawNametables(nesSystem.PpuCore);
@@ -86,72 +99,76 @@ namespace NESCS.GUI.DebugWindows
 
         private unsafe void DrawNametables(PPU ppu)
         {
-            nametableBitmap.Lock();
-
-            Color* backBuffer = (Color*)nametableBitmap.BackBuffer;
-
-            for (int nametable = 0; nametable < 4; nametable++)
+            using (ILockedFramebuffer framebuffer = nametableBitmap.Lock())
             {
-                int startOffset = totalTableSize * nametable;
-                for (int i = 0; i < PPU.VisibleCyclesPerScanline * PPU.VisibleScanlinesPerFrame; i++)
+
+                Color* backBuffer = (Color*)framebuffer.Address;
+
+                for (int nametable = 0; nametable < 4; nametable++)
                 {
-                    int yPos = i / PPU.VisibleCyclesPerScanline;
-                    int xPos = i % PPU.VisibleCyclesPerScanline;
-
-                    byte nametableByte = ppu[(ushort)(PPU.NametableStartAddress + startOffset + (yPos / 8 * nametableRowSize) + (xPos / 8))];
-                    byte attributeByte = ppu[(ushort)(PPU.AttributeTableStartAddress + startOffset + (yPos / 32 * attributeTableRowSize) + (xPos / 32))];
-
-                    ushort patternAddress = (ushort)((nametableByte << 4) | (yPos & 0b111));
-                    if ((ppu.Registers.PPUCTRL & PPUCTRLFlags.BackgroundTileSelect) != 0)
+                    int startOffset = totalTableSize * nametable;
+                    for (int i = 0; i < PPU.VisibleCyclesPerScanline * PPU.VisibleScanlinesPerFrame; i++)
                     {
-                        patternAddress |= 0b1000000000000;
+                        int yPos = i / PPU.VisibleCyclesPerScanline;
+                        int xPos = i % PPU.VisibleCyclesPerScanline;
+
+                        byte nametableByte =
+                            ppu[
+                                (ushort)(PPU.NametableStartAddress + startOffset + (yPos / 8 * nametableRowSize) +
+                                    (xPos / 8))];
+                        byte attributeByte =
+                            ppu[
+                                (ushort)(PPU.AttributeTableStartAddress + startOffset +
+                                    (yPos / 32 * attributeTableRowSize) + (xPos / 32))];
+
+                        ushort patternAddress = (ushort)((nametableByte << 4) | (yPos & 0b111));
+                        if ((ppu.Registers.PPUCTRL & PPUCTRLFlags.BackgroundTileSelect) != 0)
+                        {
+                            patternAddress |= 0b1000000000000;
+                        }
+
+                        byte patternTableHigh = ppu[(ushort)(patternAddress | 0b1000)];
+                        byte patternTableLow = ppu[patternAddress];
+
+                        // Left most (first) pixel is stored in most significant (last) bit
+                        int bgXOffset = ~xPos & 0b111;
+                        int bgBit = 1 << bgXOffset;
+                        int bgPaletteIndex = ((patternTableLow & bgBit) >> bgXOffset)
+                            | (((patternTableHigh & bgBit) >> bgXOffset) << 1);
+
+                        // Get the current 16x16 quadrant from the 32x32 attribute data
+                        // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
+                        int bgPalette = (attributeByte >> (((xPos & 0b10000) >> 3) | (((yPos / 8) & 0b10) << 1))) &
+                            0b11;
+
+                        int paletteIndex = (!showTruePaletteEntries.IsChecked ?? false) && bgPaletteIndex == 0
+                            // Use backdrop colour
+                            ? ppu[PPU.PaletteRAMStartAddress]
+                            : ppu[(ushort)(PPU.PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
+
+                        int pixelIndex = yPos * DisplayWidth + xPos;
+                        if (nametable % 2 != 0)
+                        {
+                            // Left nametables
+                            pixelIndex += PPU.VisibleCyclesPerScanline;
+                        }
+                        if (nametable >= 2)
+                        {
+                            // Bottom nametables
+                            pixelIndex += PPU.VisibleScanlinesPerFrame * DisplayWidth;
+                        }
+
+                        backBuffer[pixelIndex] = ppu.CurrentPalette[paletteIndex];
                     }
-
-                    byte patternTableHigh = ppu[(ushort)(patternAddress | 0b1000)];
-                    byte patternTableLow = ppu[patternAddress];
-
-                    // Left most (first) pixel is stored in most significant (last) bit
-                    int bgXOffset = ~xPos & 0b111;
-                    int bgBit = 1 << bgXOffset;
-                    int bgPaletteIndex = ((patternTableLow & bgBit) >> bgXOffset)
-                        | (((patternTableHigh & bgBit) >> bgXOffset) << 1);
-
-                    // Get the current 16x16 quadrant from the 32x32 attribute data
-                    // (each 4x4 tile area is packed in the same attribute byte, split into 2x2 tile areas that can be individually modified)
-                    int bgPalette = (attributeByte >> (((xPos & 0b10000) >> 3) | (((yPos / 8) & 0b10) << 1))) & 0b11;
-
-                    int paletteIndex = (!showTruePaletteEntries.IsChecked ?? false) && bgPaletteIndex == 0
-                        // Use backdrop colour
-                        ? ppu[PPU.PaletteRAMStartAddress]
-                        : ppu[(ushort)(PPU.PaletteRAMStartAddress + ((bgPalette << 2) | bgPaletteIndex))];
-
-                    int pixelIndex = yPos * DisplayWidth + xPos;
-                    if (nametable % 2 != 0)
-                    {
-                        // Left nametables
-                        pixelIndex += PPU.VisibleCyclesPerScanline;
-                    }
-                    if (nametable >= 2)
-                    {
-                        // Bottom nametables
-                        pixelIndex += PPU.VisibleScanlinesPerFrame * DisplayWidth;
-                    }
-
-                    backBuffer[pixelIndex] = ppu.CurrentPalette[paletteIndex];
                 }
             }
 
-            // Refresh entire bitmap
-            nametableBitmap.AddDirtyRect(new Int32Rect(0, 0, nametableBitmap.PixelWidth, nametableBitmap.PixelHeight));
-
-            nametableBitmap.Unlock();
+            nametableDisplay.InvalidateVisual();
         }
 
-        private void scrollOverlayVisible_Checked(object sender, RoutedEventArgs e)
+        private void scrollOverlayVisible_IsCheckedChanged(object sender, RoutedEventArgs e)
         {
-            scrollOverlayContainer.Visibility = scrollOverlayVisible.IsChecked ?? false
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            scrollOverlayContainer.IsVisible = scrollOverlayVisible.IsChecked ?? false;
         }
     }
 }

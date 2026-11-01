@@ -1,5 +1,5 @@
-﻿using System.Windows;
-using System.Windows.Media;
+﻿using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace NESCS.GUI.DebugWindows
 {

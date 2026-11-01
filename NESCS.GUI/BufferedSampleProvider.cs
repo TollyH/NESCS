@@ -1,11 +1,10 @@
 ﻿using System.Diagnostics;
-using NAudio.Wave;
 
 namespace NESCS.GUI
 {
-    public class BufferedSampleProvider(int sampleRate) : ISampleProvider
+    public class BufferedSampleProvider(int sampleRate)
     {
-        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1);
+        public int SampleRate { get; } = sampleRate;
 
         public int BufferedSampleCount => sampleBuffer.Count;
 
