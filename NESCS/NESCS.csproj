@@ -2,25 +2,18 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <Title>NESCS</Title>
     <Description>A NES emulator library made with C#</Description>
-    <Copyright>Copyright © 2025 Ptolemy Hill</Copyright>
+    <Copyright>Copyright © 2025-2026 Ptolemy Hill</Copyright>
     <PackageProjectUrl>https://github.com/TollyH/NESCS</PackageProjectUrl>
     <Company>Tolly Hill</Company>
     <Authors>Tolly Hill</Authors>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/TollyH/NESCS</RepositoryUrl>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
   </PropertyGroup>
 
 </Project>
